@@ -58,7 +58,7 @@ import distiller
 from distiller.models import create_model
 import distiller.apputils.image_classifier as classifier
 import distiller.apputils as apputils
-import parser
+import cmdparser
 import os
 import numpy as np
 
@@ -66,10 +66,9 @@ import numpy as np
 # Logger handle
 msglogger = logging.getLogger()
 
-
 def main():
     # Parse arguments
-    args = parser.add_cmdline_args(classifier.init_classifier_compression_arg_parser()).parse_args()
+    args = cmdparser.add_cmdline_args(classifier.init_classifier_compression_arg_parser()).parse_args()
     app = ClassifierCompressorSampleApp(args, script_dir=os.path.dirname(__file__))
     if app.handle_subapps():
         return
@@ -157,6 +156,7 @@ def early_exit_init(args):
 
 class ClassifierCompressorSampleApp(classifier.ClassifierCompressor):
     def __init__(self, args, script_dir):
+        print(args)
         super().__init__(args, script_dir)
         early_exit_init(self.args)
         # Save the randomly-initialized model before training (useful for lottery-ticket method)

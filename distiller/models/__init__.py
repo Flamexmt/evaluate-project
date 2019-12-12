@@ -118,6 +118,7 @@ def create_model(pretrained, dataset, arch, parallel=True, device_ids=None):
             -1 - CPU
             >=0 - GPU device IDs
     """
+    print(dataset)
     dataset = dataset.lower()
     if dataset not in SUPPORTED_DATASETS:
         raise ValueError('Dataset {} is not supported'.format(dataset))

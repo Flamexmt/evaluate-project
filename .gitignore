@@ -21,6 +21,10 @@ examples/GNMT/output_file*
 env/
 .env/
 
+data.*/
+
+checkpoint/
+
 # IDEs
 .idea/
 .vscode/

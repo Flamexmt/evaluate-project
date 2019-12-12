@@ -210,7 +210,7 @@ def init_classifier_compression_arg_parser():
     SUMMARY_CHOICES = ['sparsity', 'compute', 'model', 'modules', 'png', 'png_w_params']
 
     parser = argparse.ArgumentParser(description='Distiller image classification model compression')
-    parser.add_argument('data', metavar='DIR', help='path to dataset')
+    parser.add_argument('--data', metavar='DIR', help='path to dataset')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18', type=lambda s: s.lower(),
                         choices=models.ALL_MODEL_NAMES,
                         help='model architecture: ' +

@@ -29,7 +29,7 @@ import shutil
 import sys
 import time
 import pkg_resources
-
+os.environ["GIT_PYTHON_REFRESH"] = "quiet"
 from git import Repo, InvalidGitRepositoryError
 import numpy as np
 import torch
