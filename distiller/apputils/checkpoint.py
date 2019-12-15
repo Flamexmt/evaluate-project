@@ -57,12 +57,18 @@ def save_checkpoint(epoch, arch, model, optimizer=None, scheduler=None,
         raise TypeError('extras must be either a dict or None')
 
     filename = 'checkpoint.pth.tar' if name is None else name + '_checkpoint.pth.tar'
+    prue_filename = 'checkpoint.pth' if name is None else name + '_checkpoint.pth'
+
     fullpath = os.path.join(dir, filename)
+    prue_fullpath = os.path.join(dir,  prue_filename)
     msglogger.info("Saving checkpoint to: %s" % fullpath)
     filename_best = 'best.pth.tar' if name is None else name + '_best.pth.tar'
+    prue_filename_best= 'best.pth' if name is None else name + '_best.pth'
     fullpath_best = os.path.join(dir, filename_best)
+    prue_fullpath_best = os.path.join(dir, prue_filename_best)
 
     checkpoint = {'epoch': epoch, 'state_dict': model.state_dict(), 'arch': arch}
+    prue_checkpoint=model.state_dict()
     try:
         checkpoint['is_parallel'] = model.is_parallel
         checkpoint['dataset'] = model.dataset
@@ -83,8 +89,11 @@ def save_checkpoint(epoch, arch, model, optimizer=None, scheduler=None,
 
     checkpoint['extras'] = extras
     torch.save(checkpoint, fullpath)
+    torch.save(prue_checkpoint,prue_fullpath)
     if is_best:
         shutil.copyfile(fullpath, fullpath_best)
+        shutil.copyfile(fullpath, prue_fullpath_best)
+
 
 
 def load_lean_checkpoint(model, chkpt_file, model_device=None):
