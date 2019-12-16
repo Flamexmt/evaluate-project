@@ -202,6 +202,28 @@ def greedy(model, criterion, optimizer, loggers, args):
                                                           args.greedy_pruning_step,
                                                           test_fn, train_fn)
 
+def start():
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n-- KeyboardInterrupt --")
+    except Exception as e:
+        if msglogger is not None:
+            # We catch unhandled exceptions here in order to log them to the log file
+            # However, using the msglogger as-is to do that means we get the trace twice in stdout - once from the
+            # logging operation and once from re-raising the exception. So we remove the stdout logging handler
+            # before logging the exception
+            handlers_bak = msglogger.handlers
+            msglogger.handlers = [h for h in msglogger.handlers if type(h) != logging.StreamHandler]
+            msglogger.error(traceback.format_exc())
+            msglogger.handlers = handlers_bak
+        raise
+    finally:
+        if msglogger is not None and hasattr(msglogger, 'log_filename'):
+            msglogger.info('')
+            msglogger.info('Log file for this run: ' + os.path.realpath(msglogger.log_filename))
+
+
 
 if __name__ == '__main__':
     try:

@@ -92,7 +92,7 @@ def save_checkpoint(epoch, arch, model, optimizer=None, scheduler=None,
     torch.save(prue_checkpoint,prue_fullpath)
     if is_best:
         shutil.copyfile(fullpath, fullpath_best)
-        shutil.copyfile(fullpath, prue_fullpath_best)
+        shutil.copyfile(prue_fullpath, prue_fullpath_best)
 
 
 

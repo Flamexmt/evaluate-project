@@ -2,7 +2,7 @@ import torch
 from torchvision import datasets
 import torchvision.transforms as transforms
 bathc_size=16
-def mnist_loader(data_dir,batch_size):
+def mnist_loader(data_dir,batch_size=16):
     train_loader = torch.utils.data.DataLoader(
         datasets.MNIST(data_dir, train=True, download=True,
                        transform=transforms.Compose([
@@ -18,7 +18,7 @@ def mnist_loader(data_dir,batch_size):
         batch_size=batch_size, shuffle=True)
     return train_loader,test_loader;
 
-def cifar10_loader(data_dir,batch_size):
+def cifar10_loader(data_dir,batch_size=16):
     train_loader = torch.utils.data.DataLoader(
         datasets.MNIST(data_dir, train=True, download=True,
                        transform=transforms.Compose([
