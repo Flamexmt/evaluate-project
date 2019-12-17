@@ -213,7 +213,7 @@ def run_tests():
     parser.add_argument('--mnist-path', dest='mnist_path', metavar='DIR', help='Path to MNIST dataset')
     args = parser.parse_args()
 
-    cifar10_path = validate_dataset_path(args.cifar10_path, default='data.cifar10', name='CIFAR-10')
+    cifar10_path = validate_dataset_path(args.cifar10_path, default='data.cifar', name='CIFAR-10')
     mnist_path = validate_dataset_path(args.mnist_path, default='data.mnist', name='MNIST')
 
     datasets = {DS_CIFAR: cifar10_path, DS_MNIST: mnist_path}

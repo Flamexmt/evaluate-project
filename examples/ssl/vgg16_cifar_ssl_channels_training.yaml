@@ -2,10 +2,10 @@
 # We compressed the compute from 313M MACs to 85M MACs (x3.7), and the parameters from 14.7M to 725K (x20) using SSL
 # with channel-wise regularization, with a drop of 0.19% Top1 accuracy and w/o muuch effort.
 #
-# time python3 compress_classifier.py --arch vgg16_cifar  ../../../data.cifar10 -p=50 --lr=0.05 --epochs=180 --compress=../ssl/vgg16_cifar_ssl_channels_training.yaml -j=1 --deterministic
+# time python3 compress_classifier.py --arch vgg16_cifar  ../../../data.cifar -p=50 --lr=0.05 --epochs=180 --compress=../ssl/vgg16_cifar_ssl_channels_training.yaml -j=1 --deterministic
 #
 # The results below are from the SSL training session, and you can follow-up with some fine-tuning:
-# time python3 compress_classifier.py --arch vgg16_cifar  ../../../data.cifar10 --resume-from=checkpoint.vgg16_cifar.pth.tar  --reset-optimizer --lr=0.01 --epochs=20
+# time python3 compress_classifier.py --arch vgg16_cifar  ../../../data.cifar --resume-from=checkpoint.vgg16_cifar.pth.tar  --reset-optimizer --lr=0.01 --epochs=20
 # ==> Top1: 91.010    Top5: 99.480    Loss: 0.513
 #
 # Parameters:

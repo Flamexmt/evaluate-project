@@ -14,7 +14,7 @@
 #     Total MACs: 67,797,632
 #     Total parameters: 570704 (67.02%)
 #
-# time python3 compress_classifier.py -a=resnet56_cifar -p=50 ../../../data.cifar10 --epochs=70 --lr=0.1 --compress=../network_trimming/resnet56_cifar_activation_apoz_v2.yaml --resume-from=checkpoint.resnet56_cifar_baseline.pth.tar --reset-optimizer --act-stats=valid
+# time python3 compress_classifier.py -a=resnet56_cifar -p=50 ../../../data.cifar --epochs=70 --lr=0.1 --compress=../network_trimming/resnet56_cifar_activation_apoz_v2.yaml --resume-from=checkpoint.resnet56_cifar_baseline.pth.tar --reset-optimizer --act-stats=valid
 #
 # Parameters:
 # +----+-------------------------------------+----------------+---------------+----------------+------------+------------+----------+----------+----------+------------+---------+----------+------------+

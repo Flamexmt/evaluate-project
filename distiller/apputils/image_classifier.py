@@ -822,7 +822,7 @@ def evaluate_model(test_loader, model, criterion, loggers, activations_collector
     # the test dataset.
     # You can optionally quantize the model to 8-bit integer before evaluation.
     # For example:
-    # python3 compress_classifier.py --arch resnet20_cifar  ../data.cifar10 -p=50 --resume-from=checkpoint.pth.tar --evaluate
+    # python3 compress_classifier.py --arch resnet20_cifar  ../data.cifar -p=50 --resume-from=checkpoint.pth.tar --evaluate
 
     if not isinstance(loggers, list):
         loggers = [loggers]

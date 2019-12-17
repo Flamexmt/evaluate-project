@@ -11,7 +11,7 @@
 # We used this schedule to train CIFAR10-ResNet20 from scratch with SSL.
 # After running this schedule, use ssl_4D-removal_finetuning.yaml to "physically" remove the layers and fine-tune the smaller model.
 #
-# time python3 compress_classifier.py --arch resnet20_cifar  ../../../data.cifar10 -p=50 --lr=0.4 --epochs=180 --compress=../ssl/ssl_4D-removal_training.yaml -j=1 --deterministic
+# time python3 compress_classifier.py --arch resnet20_cifar  ../../../data.cifar -p=50 --lr=0.4 --epochs=180 --compress=../ssl/ssl_4D-removal_training.yaml -j=1 --deterministic
 #
 # Parameters:
 #

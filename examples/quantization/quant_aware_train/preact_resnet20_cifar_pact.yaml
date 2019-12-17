@@ -1,5 +1,5 @@
 
-# time python3 compress_classifier.py -a preact_resnet20_cifar --lr 0.1 -p 50 -b 128 ../../../data.cifar10/ -j 1
+# time python3 compress_classifier.py -a preact_resnet20_cifar --lr 0.1 -p 50 -b 128 ../../../data.cifar/ -j 1
 # --epochs 200 --compress=../quantization/quant_aware_train/preact_resnet20_cifar_pact.yaml --out-dir="logs/" --wd=0.0002 --vs=0
 
 
