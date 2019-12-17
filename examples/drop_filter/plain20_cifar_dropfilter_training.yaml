@@ -2,7 +2,7 @@
 # filters, instead of mere neurons.
 # However, unlike the original intent of DropFilter - to act as a regularizer and reduce the generalization error
 # of the network, here we employ higher rates of filter-dropping (rates are increased over time by following an AGP
-# schedule) in order to make the network more robust to filter-pruning.  We test this robustness using sensitivity
+# schedule) in order to make the network more robust to filter-pruning.  We test this robustnessTool using sensitivity
 # analysis.
 #
 # References:
