@@ -21,10 +21,16 @@ examples/GNMT/output_file*
 env/
 .env/
 
+
+#dataset
 data.*/
 
+
+#output files
+result/
 outputsdata/
 checkpoint/
+
 
 # IDEs
 .idea/
@@ -39,3 +45,7 @@ distiller.egg-info/
 
 # Jupyter
 .ipynb_checkpoints/
+evaluate_tools/checkpoint.pt.best
+evaluate_tools/dictkeys.txt
+examples/classifier_compression/dictkeys.txt
+examples/classifier_compression/dictkeys

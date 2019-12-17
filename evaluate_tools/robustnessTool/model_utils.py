@@ -88,13 +88,25 @@ def make_and_restore_model(*_, arch, dataset, resume_path=None,
                 attackerstring='attacker.model.'+key[7:]
                 sd[modelstring]=checkpoint[key]
                 sd[attackerstring]=checkpoint[key]
+            # 这里先写一个强行的判断，把这个属性加进去
+            print(dataset.ds_name)
+            if dataset.ds_name=='cifar':
+                sd['normalizer.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]], device='cuda:0')
+                sd['normalizer.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]], device='cuda:0')
+
+                sd['attacker.normalize.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]],
+                                                                     device='cuda:0')
+                sd['attacker.normalize.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]],
+                                                                    device='cuda:0')
+
+
             model.load_state_dict(sd)
 
             if parallel:
                 model = ch.nn.DataParallel(model)
             model = model.cuda()
-
-            print("=> loaded checkpoint '{}' (epoch {})".format(resume_path, checkpoint['epoch']))
+            if 'epoch' in checkpoint.keys():
+                print("=> loaded checkpoint '{}' (epoch {})".format(resume_path, checkpoint['epoch']))
         else:
             error_msg = "=> no checkpoint found at '{}'".format(resume_path)
             raise ValueError(error_msg)

@@ -134,7 +134,7 @@ class ResNetCifar(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, with_latent=False, fake_relu=False, no_relu=False):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
