@@ -15,7 +15,8 @@ if __name__ == '__main__':
     parser.add_argument('--aspect', type=lambda s: s.lower(), default='accuracy', choices=ALL_ASPECT_INCLUDED,
                         help='the aspect to be evaluated'.join(ALL_ASPECT_INCLUDED))
     parser.add_argument('--batch_size',help='batch_size',type=int,default=16)
-    parser.add_argument('--log', help='path to save log')
+    parser.add_argument('--log', help='path to save log',default='../../outputsdata/evaluation')
     args = parser.parse_args()
     if args.aspect == 'accuracy':
+
         accuracy.test_accuracy(args)
