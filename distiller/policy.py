@@ -207,7 +207,7 @@ class PruningPolicy(ScheduledTrainingPolicy):
                 if not self.skip_first_minibatch:
                     self.pruner.set_param_mask(param, param_name, zeros_mask_dict, meta)
             else:
-                self.pruner.set_param_mask(param, param_name, zeros_mask_dict, meta)
+                self.pruner.set_param_mask(param, param_name, zeros_mask_dict, meta)#mark
 
     def on_minibatch_begin(self, model, epoch, minibatch_id, minibatches_per_epoch,
                            zeros_mask_dict, meta, optimizer=None):

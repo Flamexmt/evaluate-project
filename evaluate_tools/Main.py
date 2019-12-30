@@ -3,9 +3,9 @@ from torchvision import datasets
 import torchvision.transforms as transforms
 import argparse
 import accuracy
-ALL_ASPECT_INCLUDED = ('all', 'accuracy', 'fairness', 'robustness', 'generalizability')
+ALL_ASPECT_INCLUDED = ('all', 'accuracy', 'robustness', 'generalizability')
 DATASET=('mnist','cifar10','imagent')
-MODEL_ARCH=('simple_mnist','plain20_cifar','preresnet','resnet20_cifar','resnet32_cifar','resnet44_cifar','resnet56_cifar','simplenet_cifar','vgg')#还有一些模型没加上去
+MODEL_ARCH=('simple_mnist','plain20_cifar','preresnet','resnet20_cifar','resnet32_cifar','resnet44_cifar','resnet56_cifar','simplenet_cifar','vgg')#some mdels still not added
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='evaluate tool main')
     parser.add_argument('--dataset_path', help='path to dataset')

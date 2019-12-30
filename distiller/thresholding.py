@@ -32,11 +32,12 @@ def threshold_mask(param, threshold):
     magnitude thresholding.
 
     Arguments:
-        param: a parameter tensor which should be pruned.
+        param: a parameter tensor which should be pruned. mark ht
         threshold: the pruning threshold.
     Returns:
         prune_mask: The pruning mask.
     """
+    print('here!!!')
     return torch.gt(torch.abs(param), threshold).type(param.type())
 
 

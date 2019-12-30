@@ -125,6 +125,7 @@ class LpRankedStructureParameterPruner(_RankedStructureParameterPruner):
                 raise ValueError("When defining a block pruner you must also specify the block shape")
 
     def prune_group(self, fraction_to_prune, param, param_name, zeros_mask_dict, model=None, binary_map=None):
+
         if fraction_to_prune == 0:
             return
         if self.group_type in ('3D', 'Filters'):
@@ -138,6 +139,7 @@ class LpRankedStructureParameterPruner(_RankedStructureParameterPruner):
                                       zeros_mask_dict, model, binary_map,
                                       magnitude_fn=self.magnitude_fn,
                                       group_size=self.group_size)
+        print('param_name is ',param_name)
         return binary_map
 
     @staticmethod

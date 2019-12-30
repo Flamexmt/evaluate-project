@@ -189,7 +189,7 @@ class ClassifierCompressor(object):
         self.performance_tracker.reset()
         for epoch in range(self.start_epoch, self.ending_epoch):
             msglogger.info('\n')
-            top1, top5, loss = self.train_validate_with_scheduling(epoch)
+            top1, top5, loss = self.train_validate_with_scheduling(epoch)#mark
             self._finalize_epoch(epoch, top1, top5)
         return self.performance_tracker.perf_scores_history
 
