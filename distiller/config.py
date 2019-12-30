@@ -111,7 +111,7 @@ def dict_config(model, optimizer, sched_dict, scheduler=None, resumed_epoch=None
 
         # Any changes to the optimizer caused by a quantizer have occurred by now, so safe to create LR schedulers
         lr_schedulers = __factory('lr_schedulers', model, sched_dict, optimizer=optimizer,
-                                  last_epoch=(resumed_epoch if resumed_epoch is not None else -1))
+                                  last_epoch=-1)
         for policy_def in lr_policies:
             instance_name, args = __policy_params(policy_def, 'lr_scheduler')
             assert instance_name in lr_schedulers, "LR-scheduler {} was not defined in the list of lr-schedulers".format(
