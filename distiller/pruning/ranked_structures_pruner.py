@@ -139,7 +139,6 @@ class LpRankedStructureParameterPruner(_RankedStructureParameterPruner):
                                       zeros_mask_dict, model, binary_map,
                                       magnitude_fn=self.magnitude_fn,
                                       group_size=self.group_size)
-        print('param_name is ',param_name)
         return binary_map
 
     @staticmethod

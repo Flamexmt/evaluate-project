@@ -48,6 +48,5 @@ class SparsityLevelParameterPruner(_ParameterPruner):
         with torch.no_grad():
             bottomk, _ = torch.topk(param.abs().view(-1), int(desired_sparsity * param.numel()), largest=False, sorted=True)
             threshold = bottomk.data[-1]  # This is the largest element from the group of elements that we prune away
-            print(param.numel,param.data,param.abs)#trying to type it!
             mask = distiller.threshold_mask(param.data, threshold)
             return mask

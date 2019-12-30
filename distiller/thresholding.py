@@ -37,7 +37,6 @@ def threshold_mask(param, threshold):
     Returns:
         prune_mask: The pruning mask.
     """
-    print('here!!!')
     return torch.gt(torch.abs(param), threshold).type(param.type())
 
 
