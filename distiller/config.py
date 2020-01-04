@@ -152,7 +152,7 @@ def file_config(model, optimizer, filename, scheduler=None, resumed_epoch=None):
 
 
 def config_component_from_file_by_class(model, filename, class_name, **extra_args):
-    with open(filename, 'r') as stream:
+    with open(filename, 'r',encoding='utf-8') as stream:
         msglogger.info('Reading configuration from: %s', filename)
         try:
             config_dict = distiller.utils.yaml_ordered_load(stream)

@@ -4,7 +4,7 @@ import os
 import DataLoader
 import modelFactory
 import torch
-
+import checkpointProcess
 from torch.autograd import Variable
 
 
@@ -34,10 +34,8 @@ def test(test_loader, args):  # test the accuracy and fairness of the model
     model = modelFactory.find_model(args.model)
     print(args,file=logfile)
     checkpoint = torch.load(args.checkpoint_path)
-    sd = {}
-    for k in checkpoint.keys():
-        sd[k[7:]] = checkpoint[k]
-    model.load_state_dict(sd)
+
+    model.load_state_dict(checkpointProcess.ProcessCheckpoint(checkpoint))
     correct = 0
     starttime = datetime.datetime.now()
     batchsize = args.batch_size

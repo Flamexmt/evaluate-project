@@ -219,6 +219,7 @@ class Quantizer(object):
             with a reference to 'new_relu1'. Any override configuration made specifically for 'self.relu2'
             will be ignored. A warning message will be shown.
         """
+
         msglogger.info('Preparing model for quantization using {0}'.format(self.__class__.__name__))
 
         self.model.quantizer_metadata["dummy_input"] = dummy_input
@@ -231,6 +232,7 @@ class Quantizer(object):
         self._pre_prepare_model(dummy_input)
 
         self._pre_process_container(self.model)
+
         for module_name, module in self.model.named_modules():
             qbits = self.module_qbits_map[module_name]
             curr_parameters = dict(module.named_parameters())
@@ -266,6 +268,7 @@ class Quantizer(object):
         pass
 
     def _pre_process_container(self, container, prefix=''):
+
         def replace_msg(module_name, modules=None):
             msglogger.debug('Module ' + module_name)
             if modules:

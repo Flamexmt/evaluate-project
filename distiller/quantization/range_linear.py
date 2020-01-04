@@ -1365,8 +1365,10 @@ class PostTrainLinearQuantizer(Quantizer):
         msglogger.info('Per-layer quantization parameters saved to ' + save_path)
 
     def prepare_model(self, dummy_input=None):
+
         self.has_bidi_distiller_lstm = any(isinstance(m, distiller.modules.DistillerLSTM) and m.bidirectional for
                                            _, m in self.model.named_modules())
+
         if self.has_bidi_distiller_lstm:
             warnings.warn('Model contains a bidirectional DistillerLSTM module. '
                           'Automatic BN folding and statistics optimization based on tracing is not yet '
