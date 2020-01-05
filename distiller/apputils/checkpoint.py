@@ -161,7 +161,11 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
             # Initialize the dest_optimizer with a dummy learning rate,
             # this is required to support SGD.__init__()
             dest_optimizer = cls(model.parameters(), lr=1)
-            dest_optimizer.load_state_dict(src_state_dict)
+            if len(src_state_dict['param_groups'])>1:
+                src_state_dict['param_groups'].pop()
+                dest_optimizer.load_state_dict(src_state_dict)
+            else:
+                dest_optimizer.load_state_dict(src_state_dict)
             msglogger.info('Optimizer of type {type} was loaded from checkpoint'.format(
                             type=type(dest_optimizer)))
             optimizer_param_groups = dest_optimizer.state_dict()['param_groups']
@@ -170,6 +174,7 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
                                  if k != 'params')))
             return dest_optimizer
         except KeyError:
+            print('dfksjfhjk')
             # Older checkpoints do support optimizer loading: They either had an 'optimizer' field
             # (different name) which was not used during the load, or they didn't even checkpoint
             # the optimizer.
@@ -210,7 +215,9 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
         if not model:
             raise ValueError("You didn't provide a model, and the checkpoint %s doesn't contain "
                              "enough information to create one", chkpt_file)
-
+    if lean_checkpoint:
+        msglogger.info("=> loaded 'state_dict' from checkpoint '{}'".format(str(chkpt_file)))
+        return model, None, None, 0
     checkpoint_epoch = checkpoint.get('epoch', None)
     start_epoch = checkpoint_epoch + 1 if checkpoint_epoch is not None else 0
     compression_scheduler = None
@@ -226,10 +233,12 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
             msglogger.warning("Found thinning_recipes key, but missing key compression_scheduler")
             compression_scheduler = distiller.CompressionScheduler(model)
         _load_and_execute_thinning_recipes()
+    optimizer = _load_optimizer()
 
     if 'quantizer_metadata' in checkpoint:
         msglogger.info('Loaded quantizer metadata from the checkpoint')
         qmd = checkpoint['quantizer_metadata']
+        qmd['params']['optimizer'] = optimizer
         quantizer = qmd['type'](model, **qmd['params'])
         quantizer.prepare_model(qmd['dummy_input'])
 
@@ -249,11 +258,7 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
     if model_device is not None:
         model.to(model_device)
 
-    if lean_checkpoint:
-        msglogger.info("=> loaded 'state_dict' from checkpoint '{}'".format(str(chkpt_file)))
-        return model, None, None, 0
 
-    optimizer = _load_optimizer()
     msglogger.info("=> loaded checkpoint '{f}' (epoch {e})".format(f=str(chkpt_file),
                                                                    e=checkpoint_epoch))
     _sanity_check()

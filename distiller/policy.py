@@ -196,9 +196,10 @@ class PruningPolicy(ScheduledTrainingPolicy):
                 param = self._fold_batchnorm(model, param_name, param, self.named_modules, self.sg)
             if not is_initialized:
                 # Initialize the maskers
-                masker = zeros_mask_dict[param_name]
-                masker.use_double_copies = self.use_double_copies
-                masker.mask_on_forward_only = self.mask_on_forward_only
+                if param_name in zeros_mask_dict.keys():
+                    masker = zeros_mask_dict[param_name]
+                    masker.use_double_copies = self.use_double_copies
+                    masker.mask_on_forward_only = self.mask_on_forward_only
                 # register for the backward hook of the parameters
                 if self.mask_gradients:
                     masker.backward_hook_handle = param.register_hook(masker.mask_gradient)
@@ -229,30 +230,34 @@ class PruningPolicy(ScheduledTrainingPolicy):
                 if self.fold_bn:
                     param = self._fold_batchnorm(model, param_name, param, self.named_modules, self.sg)
                 self.pruner.set_param_mask(param, param_name, zeros_mask_dict, meta)
-            zeros_mask_dict[param_name].apply_mask(param)
+            if param_name in zeros_mask_dict.keys():
+                zeros_mask_dict[param_name].apply_mask(param)
 
     def before_parameter_optimization(self, model, epoch, minibatch_id, minibatches_per_epoch,
                                       zeros_mask_dict, meta, optimizer):
         for param_name, param in model.named_parameters():
-            zeros_mask_dict[param_name].revert_weights(param)
+            if param_name in zeros_mask_dict.keys():
+                zeros_mask_dict[param_name].revert_weights(param)
 
     def on_minibatch_end(self, model, epoch, minibatch_id, minibatches_per_epoch, zeros_mask_dict, optimizer):
         if self.discard_masks_at_minibatch_end:
             for param_name, param in model.named_parameters():
-                zeros_mask_dict[param_name].mask = None
+                if param_name in zeros_mask_dict.keys():
+                    zeros_mask_dict[param_name].mask = None
 
     def on_epoch_end(self, model, zeros_mask_dict, meta, **kwargs):
         """The current epoch has ended"""
         if self.is_last_epoch:
             for param_name, param in model.named_parameters():
-                masker = zeros_mask_dict[param_name]
-                if self.keep_mask:
-                    masker.use_double_copies = False
-                    masker.mask_on_forward_only = False
-                    masker.mask_tensor(param)
-                if masker.backward_hook_handle is not None:
-                    masker.backward_hook_handle.remove()
-                    masker.backward_hook_handle = None
+                if param_name in zeros_mask_dict.keys():
+                    masker = zeros_mask_dict[param_name]
+                    if self.keep_mask:
+                        masker.use_double_copies = False
+                        masker.mask_on_forward_only = False
+                        masker.mask_tensor(param)
+                    if masker.backward_hook_handle is not None:
+                        masker.backward_hook_handle.remove()
+                        masker.backward_hook_handle = None
 
 
 class RegularizationPolicy(ScheduledTrainingPolicy):
