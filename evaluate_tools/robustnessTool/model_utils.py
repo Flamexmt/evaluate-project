@@ -100,7 +100,7 @@ def make_and_restore_model(*_, arch, dataset, resume_path=None,
                                                                     device='cuda:0')
 
 
-            model.load_state_dict(sd)
+            model.load_state_dict(sd,False)
 
             if parallel:
                 model = ch.nn.DataParallel(model)

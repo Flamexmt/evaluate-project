@@ -35,7 +35,7 @@ def test(test_loader, args):  # test the accuracy and fairness of the model
     print(args,file=logfile)
     checkpoint = torch.load(args.checkpoint_path)
 
-    model.load_state_dict(checkpointProcess.ProcessCheckpoint(checkpoint))
+    model.load_state_dict(checkpointProcess.ProcessCheckpoint(checkpoint),False)
     correct = 0
     starttime = datetime.datetime.now()
     batchsize = args.batch_size
