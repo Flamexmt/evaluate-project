@@ -28,6 +28,7 @@ python3 compress_classifier.py -a=resnet50 --data ../../data.imagenet/ --workers
 --gpu  Comma-separated list of GPU device IDs to be used (default is to use all available devices)
 --batch-size和--worker是我用自己电脑跑时候的设置，服务器上应该可以调大一点
 
+distiller commands.txt里有完整的命令行参数解释
 
 
 
