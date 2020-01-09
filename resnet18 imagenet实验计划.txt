@@ -1,0 +1,36 @@
+1.实验环境
+所需要的包都在requirements.txt中,在根目录下运行pip3 install -e就可以安装。不过torch 1.3.1我装的时候搜不到包，是从官网直接装的。
+2.实验流程和命令
+在ImageNet上的模型，先选取resnet18和resnet50进行训练
+a.resnet18实验
+compress_classifier.py文件在evaluate-project\examples目录下
+
+pruning:
+python3 compress_classifier.py -a=resnet18 --data ../../data.imagenet/ --workers 0 --batch-size 16 --epochs=100 --lr=0.001 --compress=../agp-pruning/resnet18.schedule_agp.yaml --pretrained --out-dir ../../outputsdata/ --gpu 0
+
+quantization:
+python3 compress_classifier.py -a=resnet18 --data ../../data.imagenet/ --workers 0 --batch-size 16 --epochs=20 --lr=0.0001 --compress=../quantization/quant_aware_train/quant_aware_train_linear_quant.yaml --pretrained --out-dir ../../outputsdata/ --gpu 0 --vs 0
+
+b.resnet50实验
+pruning:
+python3 compress_classifier.py -a=resnet50 --data ../../data.imagenet/ --workers 0 --batch-size 16 --epochs=100 --lr=0.005 --compress=../agp-pruning/resnet50.schedule_agp.yaml --pretrained --out-dir ../../outputsdata/ --gpu 0 --vs-0
+
+quantization:
+python3 compress_classifier.py -a=resnet50 --data ../../data.imagenet/ --workers 0 --batch-size 16 --epochs=20 --lr=0.0001 --compress=../quantization/quant_aware_train/quant_aware_train_linear_quant.yaml --pretrained --out-dir ../../outputsdata/ --gpu 0 --vs-0
+
+参数含义：
+--data :path to dataset
+--worker :number of data loading workers
+--batch-size :mini-batch size
+--epochs :number of total epochs to run
+--out-dir :Path to dump logs and checkpoints
+--compress :configuration file for pruning the model (default is to use hard-coded schedule)
+--gpu  Comma-separated list of GPU device IDs to be used (default is to use all available devices)
+--batch-size和--worker是我用自己电脑跑时候的设置，服务器上应该可以调大一点
+
+
+
+
+
+
+
