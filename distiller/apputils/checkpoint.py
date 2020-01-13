@@ -246,7 +246,8 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
         checkpoint['state_dict'] = {normalize_module_name(k): v for k, v in checkpoint['state_dict'].items()}
     temp={}
     for item in checkpoint['state_dict'].keys():
-        temp['module.'+item]=checkpoint['state_dict'][item]
+        if 'module' not in item:
+            temp['module.'+item]=checkpoint['state_dict'][item]
     anomalous_keys = model.load_state_dict(temp, strict)
     if anomalous_keys:
         # This is pytorch 1.1+
