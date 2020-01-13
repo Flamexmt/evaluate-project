@@ -184,6 +184,7 @@ class CompressionScheduler(object):
         """
         try:
             loaded_masks = state['masks_dict']
+
         except KeyError as exception:
             msglogger.error('could not load the CompressionScheduler state.'
                             ' masks_dict is missing from state')
@@ -196,7 +197,10 @@ class CompressionScheduler(object):
         device = model_device(self.model)
         for name, mask in self.zeros_mask_dict.items():
             masker = self.zeros_mask_dict[name]
-            masker.mask = loaded_masks[name]
+            if name in loaded_masks.keys():
+                masker.mask = loaded_masks[name]
+            else:
+                masker.mask=loaded_masks[name[7:]]
             if masker.mask is not None:
                 masker.mask = masker.mask.to(device)
 
