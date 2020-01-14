@@ -199,7 +199,7 @@ class CompressionScheduler(object):
             masker = self.zeros_mask_dict[name]
             if name in loaded_masks.keys():
                 masker.mask = loaded_masks[name]
-            else:
+            elif name[:7] == 'module.' :
                 masker.mask=loaded_masks[name[7:]]
             if masker.mask is not None:
                 masker.mask = masker.mask.to(device)

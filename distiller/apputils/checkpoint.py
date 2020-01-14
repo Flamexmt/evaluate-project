@@ -244,13 +244,13 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
 
     if normalize_dataparallel_keys:
         checkpoint['state_dict'] = {normalize_module_name(k): v for k, v in checkpoint['state_dict'].items()}
-    temp={}
-    for item in checkpoint['state_dict'].keys():
-        if 'module' not in item:
-            temp['module.'+item]=checkpoint['state_dict'][item]
-    anomalous_keys = model.load_state_dict(temp, strict)
+    anomalous_keys = model.load_state_dict(checkpoint['state_dict'], strict)
     if anomalous_keys:
         # This is pytorch 1.1+
+        temp = {}
+        for item in checkpoint['state_dict'].keys():
+            temp['module.' + item] = checkpoint['state_dict'][item]
+        anomalous_keys = model.load_state_dict(temp, strict)
         missing_keys, unexpected_keys = anomalous_keys
         if unexpected_keys:
             msglogger.warning("Warning: the loaded checkpoint (%s) contains %d unexpected state keys" %
