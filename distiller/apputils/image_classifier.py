@@ -211,6 +211,9 @@ def init_classifier_compression_arg_parser():
     SUMMARY_CHOICES = ['sparsity', 'compute', 'model', 'modules', 'png', 'png_w_params']
 
     parser = argparse.ArgumentParser(description='Distiller image classification model compression')
+    parser.add_argument('--no_quantization',action='store_true',
+                        help='if resume from a quant_aware_trained model,if use other compression method,this should be set.'
+                        ,default=False)
     parser.add_argument('--data', metavar='DIR', help='path to dataset')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18', type=lambda s: s.lower(),
                         choices=models.ALL_MODEL_NAMES,
@@ -397,7 +400,7 @@ def _init_learner(args):
     start_epoch = 0
     if args.resumed_checkpoint_path:
         model, compression_scheduler, optimizer, start_epoch = apputils.load_checkpoint(
-            model, args.resumed_checkpoint_path, model_device=args.device)
+            model, args.resumed_checkpoint_path, model_device=args.device,still_quantization=not(args.no_quantization))
     elif args.load_model_path:
         model = apputils.load_lean_checkpoint(model, args.load_model_path, model_device=args.device)
     if args.reset_optimizer:

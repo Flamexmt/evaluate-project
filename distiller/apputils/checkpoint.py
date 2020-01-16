@@ -115,7 +115,7 @@ def get_contents_table(d):
 
 
 def load_checkpoint(model, chkpt_file, optimizer=None,
-                    model_device=None, lean_checkpoint=False, strict=False):
+                    model_device=None, lean_checkpoint=False, strict=False,still_quantization=True):
     """Load a pytorch training checkpoint.
 
     Args:
@@ -174,7 +174,6 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
                                  if k != 'params')))
             return dest_optimizer
         except KeyError:
-            print('dfksjfhjk')
             # Older checkpoints do support optimizer loading: They either had an 'optimizer' field
             # (different name) which was not used during the load, or they didn't even checkpoint
             # the optimizer.
@@ -234,8 +233,8 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
             compression_scheduler = distiller.CompressionScheduler(model)
         _load_and_execute_thinning_recipes()
     optimizer = _load_optimizer()
-
-    if 'quantizer_metadata' in checkpoint:
+# if pruning is after quantizer,then do not skip this!
+    if 'quantizer_metadata' in checkpoint and still_quantization:
         msglogger.info('Loaded quantizer metadata from the checkpoint')
         qmd = checkpoint['quantizer_metadata']
         qmd['params']['optimizer'] = optimizer
@@ -246,16 +245,17 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
         checkpoint['state_dict'] = {normalize_module_name(k): v for k, v in checkpoint['state_dict'].items()}
     anomalous_keys = model.load_state_dict(checkpoint['state_dict'], strict)
     missing_keys, unexpected_keys = anomalous_keys
+
     if missing_keys or unexpected_keys:
         # This is pytorch 1.1+
-        temp = {}
-        for item in checkpoint['state_dict'].keys():
-            temp['module.' + item] = checkpoint['state_dict'][item]
-        anomalous_keys = model.load_state_dict(temp, strict)
-        missing_keys, unexpected_keys = anomalous_keys
+        if missing_keys:
+            temp = {}
+            for item in checkpoint['state_dict'].keys():
+                temp['module.' + item] = checkpoint['state_dict'][item]
+            anomalous_keys = model.load_state_dict(temp, strict)
+            missing_keys, unexpected_keys = anomalous_keys
         if unexpected_keys:
             print('unexpected_keys',unexpected_keys)
-
             msglogger.warning("Warning: the loaded checkpoint (%s) contains %d unexpected state keys" %
                               (chkpt_file, len(unexpected_keys)))
         if missing_keys:
