@@ -107,7 +107,7 @@ policies:
   - pruner:
       instance_name : low_pruner
     starting_epoch: 0
-    ending_epoch: 180
+    ending_epoch: 130
     frequency: 2
 
 # After completing the pruning, we perform network thinning and continue fine-tuning.
@@ -118,18 +118,18 @@ policies:
 # file.
   - extension:
       instance_name: net_thinner
-    epochs: [180]
+    epochs: [130]
 
   - pruner:
       instance_name : fine_pruner
-    starting_epoch: 180
-    ending_epoch: 200
+    starting_epoch: 130
+    ending_epoch: 150
     frequency: 2
 
   - pruner:
       instance_name : fc_pruner
-    starting_epoch: 180
-    ending_epoch: 200
+    starting_epoch: 130
+    ending_epoch: 150
     frequency: 2
 
   - lr_scheduler:
