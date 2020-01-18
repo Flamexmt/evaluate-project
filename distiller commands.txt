@@ -258,3 +258,6 @@ Greedy Pruning:
   --greedy-finetuning-policy {constant,linear-grow}
                         policy used for determining how long to fine-tune
 
+Added by xmt:
+  --no_quantization
+                    if uesd,quantized model ignore quantization metadata
