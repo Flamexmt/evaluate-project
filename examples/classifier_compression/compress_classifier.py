@@ -131,8 +131,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 # 这里这些参数我还没搞懂是啥意思，model.后面应该是原本模型的参数，attacker.model和这四个平均值我还不知道是什么意思
                 sd = {}
                 for key in checkpoint.keys():
-                    modelstring = 'model.' + key
-                    attackerstring = 'attacker.model.' + key
+                    modelstring = 'model.module.' + key.replace('module.','')
+                    attackerstring = 'attacker.model.module.' + key.replace('module.','')
                     sd[modelstring] = checkpoint[key]
                     sd[attackerstring] = checkpoint[key]
                 # 这里先写一个强行的判断，把这个属性加进去
@@ -144,17 +144,18 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                                                   device='cuda:0')
                     sd['attacker.normalize.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]],
                                                                  device='cuda:0')
-                attackermodel.load_state_dict(sd, True)
+                anomalous_keys=attackermodel.load_state_dict(sd, False)
+
+
                 attackermodel = ch.nn.DataParallel(attackermodel)
                 attackermodel = attackermodel.cuda()
-
         train_loader, val_loader = dataset.make_loaders(args.workers,
                                                         args.batch_size, data_aug=bool(args.data_aug))
         import helpers
         train_loader = helpers.DataPrefetcher(train_loader)
         val_loader = helpers.DataPrefetcher(val_loader)
-        train.eval_model(args, attackermodel, val_loader, store=None)
-
+        logtext=train.eval_model(args, attackermodel, val_loader, store=None)
+        msglogger.info(logtext)
 
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
             classifier.create_activation_stats_collectors(model, *args.activation_stats),

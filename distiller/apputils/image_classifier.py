@@ -211,10 +211,17 @@ def init_classifier_compression_arg_parser():
     SUMMARY_CHOICES = ['sparsity', 'compute', 'model', 'modules', 'png', 'png_w_params']
 
     parser = argparse.ArgumentParser(description='Distiller image classification model compression')
-    parser.add_argument('--adv_eval', default=0)
+    parser.add_argument('--adv_eval', default=1)
     parser.add_argument('--adv_train', default=0)
     parser.add_argument('--config_path', default=None)
-    parser.add_argument('--eval_only', default=1)
+    parser.add_argument('--constraint', default='2')
+    parser.add_argument('--eps', default=0.5)
+    parser.add_argument('--attack-lr', default=0.1)
+    parser.add_argument('--attack-steps', default=100)
+    parser.add_argument('--use-best', default=1)
+    parser.add_argument('--eps-fadein-epochs', default=0)
+    parser.add_argument('--random-restarts',default=0)
+
     parser.add_argument('--no_quantization',action='store_true',
                         help='if resume from a quant_aware_trained model,if use other compression method,this should be set.'
                         ,default=False)

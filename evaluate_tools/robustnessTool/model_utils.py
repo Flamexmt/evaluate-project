@@ -109,8 +109,6 @@ def make_and_restore_model(*_, arch, dataset, resume_path=None,
         else:
             error_msg = "=> no checkpoint found at '{}'".format(resume_path)
             raise ValueError(error_msg)
-    for name, param in model.named_parameters():
-        print(name, '      ', param)
     return model, checkpoint
 
 def model_dataset_from_store(s, overwrite_params={}, which='last'):

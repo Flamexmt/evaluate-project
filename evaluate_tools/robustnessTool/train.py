@@ -390,7 +390,7 @@ def _model_loop(args, loop_type, loader, model, opt, epoch, adv, writer):
             'eps': eps,
             'step_size': args.attack_lr,
             'iterations': args.attack_steps,
-            'random_start': args.random_start,
+            'random_start': args.random_restarts,
             'custom_loss': adv_criterion,
             'random_restarts': random_restarts,
             'use_best': bool(args.use_best)

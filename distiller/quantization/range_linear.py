@@ -1563,7 +1563,7 @@ def update_ema(biased_ema, value, decay, step):
     return biased_ema, unbiased_ema
 
 
-def inputs_quantize_wrapped_forward(self, input):
+def inputs_quantize_wrapped_forward(self, input, with_latent=False, fake_relu=False, no_relu=False):
     input = self.inputs_quant(input)
     return self.original_forward(input)
 
