@@ -211,6 +211,10 @@ def init_classifier_compression_arg_parser():
     SUMMARY_CHOICES = ['sparsity', 'compute', 'model', 'modules', 'png', 'png_w_params']
 
     parser = argparse.ArgumentParser(description='Distiller image classification model compression')
+    parser.add_argument('--adv_eval', default=0)
+    parser.add_argument('--adv_train', default=0)
+    parser.add_argument('--config_path', default=None)
+    parser.add_argument('--eval_only', default=1)
     parser.add_argument('--no_quantization',action='store_true',
                         help='if resume from a quant_aware_trained model,if use other compression method,this should be set.'
                         ,default=False)
@@ -226,7 +230,7 @@ def init_classifier_compression_arg_parser():
                         help='number of total epochs to run (default: 90')
     parser.add_argument('-b', '--batch-size', default=256, type=int,
                         metavar='N', help='mini-batch size (default: 256)')
-
+    parser.add_argument('--data_aug',default=1)
     optimizer_args = parser.add_argument_group('Optimizer arguments')
     optimizer_args.add_argument('--lr', '--learning-rate', default=0.1,
                                 type=float, metavar='LR', help='initial learning rate')
@@ -387,7 +391,6 @@ def _init_learner(args):
     model = create_model(args.pretrained, args.dataset, args.arch,
                          parallel=not args.load_serialized, device_ids=args.gpus)
     compression_scheduler = None
-
     # TODO(barrh): args.deprecated_resume is deprecated since v0.3.1
     if args.deprecated_resume:
         msglogger.warning('The "--resume" flag is deprecated. Please use "--resume-from=YOUR_PATH" instead.')
@@ -401,6 +404,7 @@ def _init_learner(args):
     if args.resumed_checkpoint_path:
         model, compression_scheduler, optimizer, start_epoch = apputils.load_checkpoint(
             model, args.resumed_checkpoint_path, model_device=args.device,still_quantization=not(args.no_quantization))
+
     elif args.load_model_path:
         model = apputils.load_lean_checkpoint(model, args.load_model_path, model_device=args.device)
     if args.reset_optimizer:
@@ -642,6 +646,9 @@ def validate(val_loader, model, criterion, loggers, args, epoch=-1):
 
 def test(test_loader, model, criterion, loggers=None, activations_collectors=None, args=None):
     """Model Test"""
+    import datetime
+    import sys as sys
+    starttime = datetime.datetime.now()
     msglogger.info('--- test ---------------------')
     if args is None:
         args = ClassifierCompressor.mock_args()
@@ -652,6 +659,8 @@ def test(test_loader, model, criterion, loggers=None, activations_collectors=Non
         top1, top5, lossses = _validate(test_loader, model, criterion, loggers, args)
         distiller.log_activation_statistics(-1, "test", loggers, collector=collectors['sparsity'])
         save_collectors_data(collectors, msglogger.logdir)
+    endtime = datetime.datetime.now()
+    msglogger.info('time cost is '+str(endtime - starttime)+' seconds.')
     return top1, top5, lossses
 
 

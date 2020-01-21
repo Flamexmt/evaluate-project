@@ -76,7 +76,6 @@ def make_and_restore_model(*_, arch, dataset, resume_path=None,
         if os.path.isfile(resume_path):
             print("=> loading checkpoint '{}'".format(resume_path))
             checkpoint = ch.load(resume_path, pickle_module=dill)
-            
             # Makes us able to load models saved with legacy versions
             state_dict_path = 'model'
             if not ('model' in checkpoint):
@@ -110,7 +109,8 @@ def make_and_restore_model(*_, arch, dataset, resume_path=None,
         else:
             error_msg = "=> no checkpoint found at '{}'".format(resume_path)
             raise ValueError(error_msg)
-
+    for name, param in model.named_parameters():
+        print(name, '      ', param)
     return model, checkpoint
 
 def model_dataset_from_store(s, overwrite_params={}, which='last'):

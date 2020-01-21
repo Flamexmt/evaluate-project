@@ -6,7 +6,7 @@ import os
 from subprocess import Popen, PIPE
 import pandas as pd
 from PIL import Image
-from . import constants
+import constants
 
 def has_attr(obj, k):
     """Checks both that obj.k exists and is not equal to None"""

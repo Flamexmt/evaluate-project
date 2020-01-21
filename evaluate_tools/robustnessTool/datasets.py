@@ -384,7 +384,7 @@ DATASETS = {
     'imagenet': ImageNet,
     'restricted_imagenet': RestrictedImageNet,
     'custom_imagenet': CustomImageNet,
-    'cifar': CIFAR,
+    'cifar10': CIFAR,
     'cinic': CINIC,
     'a2b': A2B
 }

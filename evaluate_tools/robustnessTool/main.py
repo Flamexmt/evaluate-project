@@ -11,7 +11,7 @@ import torch as ch
 import cox
 import cox.utils
 import cox.store
-
+import image_classifier
 from model_utils import make_and_restore_model
 from datasets import DATASETS
 from train import train_model, eval_model
@@ -43,6 +43,7 @@ def main(args, store=None):
     # MAKE MODEL
     model, checkpoint = make_and_restore_model(arch=args.arch,
             dataset=dataset, resume_path=args.resume)
+
     if 'module' in dir(model): model = model.module
 
     print(args)

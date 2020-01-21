@@ -61,7 +61,7 @@ import distiller.apputils as apputils
 import cmdparser
 import os
 import numpy as np
-
+import train
 
 # Logger handle
 msglogger = logging.getLogger()
@@ -87,6 +87,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
     if args.greedy:
         greedy(model, criterion, optimizer, pylogger, args)
         do_exit = True
+
+
     elif args.summary:
         # This sample application can be invoked to produce various summary reports
         for summary in args.summary:
@@ -110,6 +112,50 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         do_exit = True
     elif args.evaluate:
         test_loader = load_test_data(args)
+        from datasets import DATASETS
+        data_path = os.path.expandvars(args.data)
+        dataset = DATASETS[args.dataset](data_path)
+        from attacker import AttackerModel
+        attackermodel = AttackerModel(model, dataset)
+        import torch as ch
+        resume_path=args.resumed_checkpoint_path
+        import dill
+        if resume_path:
+            if os.path.isfile(resume_path):
+                print("=> loading checkpoint '{}'".format(resume_path))
+                checkpoint = ch.load(resume_path, pickle_module=dill)['state_dict']
+                # Makes us able to load models saved with legacy versions
+                state_dict_path = 'model'
+                if not ('model' in checkpoint):
+                    state_dict_path = 'state_dict'
+                # 这里这些参数我还没搞懂是啥意思，model.后面应该是原本模型的参数，attacker.model和这四个平均值我还不知道是什么意思
+                sd = {}
+                for key in checkpoint.keys():
+                    modelstring = 'model.' + key
+                    attackerstring = 'attacker.model.' + key
+                    sd[modelstring] = checkpoint[key]
+                    sd[attackerstring] = checkpoint[key]
+                # 这里先写一个强行的判断，把这个属性加进去
+                print(dataset.ds_name)
+                if dataset.ds_name == 'cifar':
+                    sd['normalizer.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]], device='cuda:0')
+                    sd['normalizer.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]], device='cuda:0')
+                    sd['attacker.normalize.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]],
+                                                                  device='cuda:0')
+                    sd['attacker.normalize.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]],
+                                                                 device='cuda:0')
+                attackermodel.load_state_dict(sd, True)
+                attackermodel = ch.nn.DataParallel(attackermodel)
+                attackermodel = attackermodel.cuda()
+
+        train_loader, val_loader = dataset.make_loaders(args.workers,
+                                                        args.batch_size, data_aug=bool(args.data_aug))
+        import helpers
+        train_loader = helpers.DataPrefetcher(train_loader)
+        val_loader = helpers.DataPrefetcher(val_loader)
+        train.eval_model(args, attackermodel, val_loader, store=None)
+
+
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
             classifier.create_activation_stats_collectors(model, *args.activation_stats),
             args, scheduler=compression_scheduler)
