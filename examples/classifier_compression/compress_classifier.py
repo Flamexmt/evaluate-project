@@ -66,6 +66,7 @@ import train
 # Logger handle
 msglogger = logging.getLogger()
 
+
 def main():
     # Parse arguments
     args = cmdparser.add_cmdline_args(classifier.init_classifier_compression_arg_parser()).parse_args()
@@ -73,11 +74,11 @@ def main():
     if app.handle_subapps():
         return
     init_knowledge_distillation(app.args, app.model, app.compression_scheduler)
-    app.run_training_loop()#mark
+    app.run_training_loop()  # mark
     # Finally run results on the test set
     return app.test()
 
-    
+
 def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger, args):
     def load_test_data(args):
         test_loader = classifier.load_data(args, load_train=False, load_val=False, load_test=True)
@@ -118,48 +119,52 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         from attacker import AttackerModel
         attackermodel = AttackerModel(model, dataset)
         import torch as ch
-        resume_path=args.resumed_checkpoint_path
+        resume_path = args.resumed_checkpoint_path
         import dill
-        if resume_path:
-            if os.path.isfile(resume_path):
-                print("=> loading checkpoint '{}'".format(resume_path))
-                checkpoint = ch.load(resume_path, pickle_module=dill)['state_dict']
-                # Makes us able to load models saved with legacy versions
-                state_dict_path = 'model'
-                if not ('model' in checkpoint):
-                    state_dict_path = 'state_dict'
-                # 这里这些参数我还没搞懂是啥意思，model.后面应该是原本模型的参数，attacker.model和这四个平均值我还不知道是什么意思
-                sd = {}
-                for key in checkpoint.keys():
-                    modelstring = 'model.module.' + key.replace('module.','')
-                    attackerstring = 'attacker.model.module.' + key.replace('module.','')
-                    sd[modelstring] = checkpoint[key]
-                    sd[attackerstring] = checkpoint[key]
-                # 这里先写一个强行的判断，把这个属性加进去
-                print(dataset.ds_name)
-                if dataset.ds_name == 'cifar':
-                    sd['normalizer.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]], device='cuda:0')
-                    sd['normalizer.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]], device='cuda:0')
-                    sd['attacker.normalize.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]],
-                                                                  device='cuda:0')
-                    sd['attacker.normalize.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]],
-                                                                 device='cuda:0')
-                anomalous_keys=attackermodel.load_state_dict(sd, False)
-
-
-                attackermodel = ch.nn.DataParallel(attackermodel)
-                attackermodel = attackermodel.cuda()
-        train_loader, val_loader = dataset.make_loaders(args.workers,
-                                                        args.batch_size, data_aug=bool(args.data_aug))
-        import helpers
-        train_loader = helpers.DataPrefetcher(train_loader)
-        val_loader = helpers.DataPrefetcher(val_loader)
-        logtext=train.eval_model(args, attackermodel, val_loader, store=None)
-        msglogger.info(logtext)
-
+        # if resume_path:
+        #     if os.path.isfile(resume_path):
+        #         print("=> loading checkpoint '{}'".format(resume_path))
+        #         checkpoint = ch.load(resume_path, pickle_module=dill)['state_dict']
+        #         # Makes us able to load models saved with legacy versions
+        #         state_dict_path = 'model'
+        #         if not ('model' in checkpoint):
+        #             state_dict_path = 'state_dict'
+        #         # 这里这些参数我还没搞懂是啥意思，model.后面应该是原本模型的参数，attacker.model和这四个平均值我还不知道是什么意思
+        #         sd = {}
+        #         for key in checkpoint.keys():
+        #             modelstring = 'model.module.' + key.replace('module.','')
+        #             attackerstring = 'attacker.model.module.' + key.replace('module.','')
+        #             sd[modelstring] = checkpoint[key]
+        #             sd[attackerstring] = checkpoint[key]
+        #         # 这里先写一个强行的判断，把这个属性加进去
+        #         print(dataset.ds_name)
+        #         if dataset.ds_name == 'cifar':
+        #             sd['normalizer.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]], device='cuda:0')
+        #             sd['normalizer.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]], device='cuda:0')
+        #             sd['attacker.normalize.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]],
+        #                                                           device='cuda:0')
+        #             sd['attacker.normalize.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]],
+        #                                                          device='cuda:0')
+        #         anomalous_keys=attackermodel.load_state_dict(sd, False)
+        #
+        #
+        #         attackermodel = ch.nn.DataParallel(attackermodel)
+        #         attackermodel = attackermodel.cuda()
+        # train_loader, val_loader = dataset.make_loaders(args.workers,
+        #                                                 args.batch_size, data_aug=bool(args.data_aug))
+        # import helpers
+        # train_loader = helpers.DataPrefetcher(train_loader)
+        # val_loader = helpers.DataPrefetcher(val_loader)
+        # logtext=train.eval_model(args, attackermodel, val_loader, store=None)
+        # msglogger.info(logtext)
+        import torch.quantization as tq
+        if args.quantized:
+            model = model.to('cpu')
+            qmodel = tq.quantize_dynamic(model, inplace=True)
+            model = qmodel
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
-            classifier.create_activation_stats_collectors(model, *args.activation_stats),
-            args, scheduler=compression_scheduler)
+                                  classifier.create_activation_stats_collectors(model, *args.activation_stats),
+                                  args, scheduler=compression_scheduler)
         do_exit = True
     elif args.thinnify:
         assert args.resumed_checkpoint_path is not None, \
@@ -212,7 +217,6 @@ class ClassifierCompressorSampleApp(classifier.ClassifierCompressor):
             apputils.save_checkpoint(0, self.args.arch, self.model,
                                      name=ckpt_name, dir=msglogger.logdir)
 
-
     def handle_subapps(self):
         return handle_subapps(self.model, self.criterion, self.optimizer,
                               self.compression_scheduler, self.pylogger, self.args)
@@ -249,6 +253,7 @@ def greedy(model, criterion, optimizer, loggers, args):
                                                           args.greedy_pruning_step,
                                                           test_fn, train_fn)
 
+
 def start():
     try:
         main()
@@ -269,7 +274,6 @@ def start():
         if msglogger is not None and hasattr(msglogger, 'log_filename'):
             msglogger.info('')
             msglogger.info('Log file for this run: ' + os.path.realpath(msglogger.log_filename))
-
 
 
 if __name__ == '__main__':

@@ -1,6 +1,3 @@
-import torch
-from torchvision import datasets
-import torchvision.transforms as transforms
 import argparse
 import accuracy
 ALL_ASPECT_INCLUDED = ('all', 'accuracy', 'robustness', 'generalizability')
@@ -16,6 +13,7 @@ if __name__ == '__main__':
                         help='the aspect to be evaluated'.join(ALL_ASPECT_INCLUDED))
     parser.add_argument('--batch_size',help='batch_size',type=int,default=16)
     parser.add_argument('--log', help='path to save log',default='../../outputsdata/evaluation')
+    parser.add_argument('--quantized', help='quantize or not', default=0,choices=('0','8','16'))
     args = parser.parse_args()
     if args.aspect == 'accuracy':
 

@@ -6,6 +6,8 @@ import modelFactory
 import torch
 import checkpointProcess
 from torch.autograd import Variable
+import torch.quantization as tq
+import torch.nn as nn
 
 
 def test_accuracy(args):
@@ -21,21 +23,39 @@ def test_accuracy(args):
     test(test_loader, args, )
 
 
+def quntization(model):
+    torch.backends.quantized.engine = 'qnnpack'
+    print_size_of_model(model)
+    model.fuse_model()
+    qmodel=tq.quantize_dynamic(model,inplace=True)
+    print_size_of_model(qmodel)
+
+
+def print_size_of_model(model):
+    torch.save(model.state_dict(), "temp.p")
+    print('Size (MB):', os.path.getsize("temp.p") / 1e6)
+    os.remove('temp.p')
+
+
 def test(test_loader, args):  # test the accuracy and fairness of the model
     import datetime
     date_p = datetime.datetime.now()
     date_p.strftime("%Y%m%d%H%M%S")
-    timestr=str(date_p).replace(' ','')
+    timestr = str(date_p).replace(' ', '')
     timestr = timestr.replace('-', '')
     timestr = timestr.replace(':', '')
     timestr = timestr.replace('.', '')
     filepath = str(args.log) + timestr + '.txt'
     logfile = open(filepath, 'w', encoding='utf-8')
     model = modelFactory.find_model(args.model)
-    print(args,file=logfile)
+    print(args, file=logfile)
     checkpoint = torch.load(args.checkpoint_path)
 
-    model.load_state_dict(checkpointProcess.ProcessCheckpoint(checkpoint),False)
+    model.load_state_dict(checkpointProcess.ProcessCheckpoint(checkpoint), False)
+    if args.quantized:
+        quantizedModel = quntization(model.to('cpu'))
+        return  0
+    model.eval()
     correct = 0
     starttime = datetime.datetime.now()
     batchsize = args.batch_size
@@ -59,16 +79,16 @@ def test(test_loader, args):  # test the accuracy and fairness of the model
                     correct_list[target[i].item()] += 1
 
         for i in range(10):
-            print('category', i,file=logfile)
-            print('total', total_list[i],file=logfile)
-            print('predicted num', predicted_list[i],file=logfile)
-            print('Recall', round(correct_list[i] / total_list[i] * 100,2),'%',file=logfile)
-            print('Precision', round(correct_list[i] / predicted_list[i] * 100,2),'%',file=logfile)
-            print('-----------------------------',file=logfile)
+            print('category', i, file=logfile)
+            print('total', total_list[i], file=logfile)
+            print('predicted num', predicted_list[i], file=logfile)
+            print('Recall', round(correct_list[i] / total_list[i] * 100, 2), '%', file=logfile)
+            print('Precision', round(correct_list[i] / predicted_list[i] * 100, 2), '%', file=logfile)
+            print('-----------------------------', file=logfile)
     endtime = datetime.datetime.now()
 
     print('\nTest set: Accuracy: {}/{} ({:.0f}%)\n'.format(
         correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)),file=logfile)
-    print('time cost is', (endtime - starttime), 'seconds.',file=logfile)
-    print('file size is', os.path.getsize(args.checkpoint_path), 'bytes.',file=logfile)  # print the size of the file
+        100. * correct / len(test_loader.dataset)), file=logfile)
+    print('time cost is', (endtime - starttime), 'seconds.', file=logfile)
+    print('file size is', os.path.getsize(args.checkpoint_path), 'bytes.', file=logfile)  # print the size of the file
