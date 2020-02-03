@@ -112,15 +112,22 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         sensitivity_analysis(model, criterion, test_loader, pylogger, args, sensitivities)
         do_exit = True
     elif args.evaluate:
+        def print_size_of_model(model):
+            import torch
+            torch.save(model.state_dict(), "temp.p")
+            size='Size (MB):'+str(os.path.getsize("temp.p") / 1e6)
+            print(size)
+            os.remove('temp.p')
+            return  size
         test_loader = load_test_data(args)
-        from datasets import DATASETS
-        data_path = os.path.expandvars(args.data)
-        dataset = DATASETS[args.dataset](data_path)
-        from attacker import AttackerModel
-        attackermodel = AttackerModel(model, dataset)
-        import torch as ch
-        resume_path = args.resumed_checkpoint_path
-        import dill
+        # from datasets import DATASETS
+        # data_path = os.path.expandvars(args.data)
+        # dataset = DATASETS[args.dataset](data_path)
+        # from attacker import AttackerModel
+        # attackermodel = AttackerModel(model, dataset)
+        # import torch as ch
+        # resume_path = args.resumed_checkpoint_path
+        # import dill
         # if resume_path:
         #     if os.path.isfile(resume_path):
         #         print("=> loading checkpoint '{}'".format(resume_path))
@@ -162,6 +169,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             model = model.to('cpu')
             qmodel = tq.quantize_dynamic(model, inplace=True)
             model = qmodel
+            msglogger.info('model is quantized to ',args.quantized,'bits')
+        msglogger.info(print_size_of_model(model))
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                   classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                   args, scheduler=compression_scheduler)

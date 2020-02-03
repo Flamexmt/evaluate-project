@@ -254,6 +254,12 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
                 temp['module.' + item] = checkpoint['state_dict'][item]
             anomalous_keys = model.load_state_dict(temp, strict)
             missing_keys, unexpected_keys = anomalous_keys
+        if missing_keys:
+            temp = {}
+            for item in checkpoint['state_dict'].keys():
+                temp[item[7:]] = checkpoint['state_dict'][item]
+            anomalous_keys = model.load_state_dict(temp, strict)
+            missing_keys, unexpected_keys = anomalous_keys
         if unexpected_keys:
             print('unexpected_keys',unexpected_keys)
             msglogger.warning("Warning: the loaded checkpoint (%s) contains %d unexpected state keys" %
