@@ -38,7 +38,6 @@ import torch.nn as nn
 import math
 import torch.utils.model_zoo as model_zoo
 from distiller.modules import EltwiseAdd
-import custom_modules
 
 __all__ = ['resnet20_cifar', 'resnet32_cifar', 'resnet44_cifar', 'resnet56_cifar']
 
@@ -81,8 +80,7 @@ class BasicBlock(nn.Module):
             residual = self.downsample(x)
 
         out = self.residual_eltwiseadd(residual, out)
-        if fake_relu:
-            return custom_modules.FakeReLU.apply(out)
+
         return self.relu2(out)
 
 
