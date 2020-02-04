@@ -212,6 +212,7 @@ def init_classifier_compression_arg_parser():
 
     parser = argparse.ArgumentParser(description='Distiller image classification model compression')
     parser.add_argument('--quantized', help='quantize or not', default=0, choices=('0', '8', '16'))
+    parser.add_argument('--adv', default=0)
     parser.add_argument('--adv_eval', default=1)
     parser.add_argument('--adv_train', default=0)
     parser.add_argument('--config_path', default=None)

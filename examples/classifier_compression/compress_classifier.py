@@ -115,10 +115,11 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         def print_size_of_model(model):
             import torch
             torch.save(model.state_dict(), "temp.p")
-            size='Size (MB):'+str(os.path.getsize("temp.p") / 1e6)
+            size = 'Size (MB):' + str(os.path.getsize("temp.p") / 1e6)
             print(size)
             os.remove('temp.p')
-            return  size
+            return size
+
         test_loader = load_test_data(args)
         # from datasets import DATASETS
         # data_path = os.path.expandvars(args.data)
@@ -169,11 +170,32 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             model = model.to('cpu')
             qmodel = tq.quantize_dynamic(model, inplace=True)
             model = qmodel
-            msglogger.info('model is quantized to ',args.quantized,'bits')
+            msglogger.info('model is quantized to ', args.quantized, 'bits')
         msglogger.info(print_size_of_model(model))
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                   classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                   args, scheduler=compression_scheduler)
+        if args.adv == '1':
+            import numpy as np
+            import art
+            from art.attacks import FastGradientMethod
+            from art.classifiers import PyTorchClassifier
+            from art.utils import load_cifar10
+            (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
+            x_train = np.swapaxes(x_train, 1, 3).astype(np.float32)
+            x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
+            ADVclassifier = PyTorchClassifier(model=model, clip_values=(min_pixel_value, max_pixel_value),
+                                              loss=criterion,
+                                              optimizer=optimizer, input_shape=(1, 32, 32), nb_classes=10)
+            predictions = ADVclassifier.predict(x_test)
+            accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            print('Accuracy on benign test examples: {}%'.format(accuracy * 100))
+            attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
+            x_test_adv = attack.generate(x=x_test)
+            predictions = ADVclassifier.predict(x_test_adv)
+            accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            print('Accuracy on adversarial test examples: {}%'.format(accuracy * 100))
+
         do_exit = True
     elif args.thinnify:
         assert args.resumed_checkpoint_path is not None, \
