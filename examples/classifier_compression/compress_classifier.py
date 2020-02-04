@@ -61,7 +61,6 @@ import distiller.apputils as apputils
 import cmdparser
 import os
 import numpy as np
-import train
 
 # Logger handle
 msglogger = logging.getLogger()
