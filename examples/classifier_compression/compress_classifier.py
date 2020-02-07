@@ -119,50 +119,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             return size
 
         test_loader = load_test_data(args)
-        # from datasets import DATASETS
-        # data_path = os.path.expandvars(args.data)
-        # dataset = DATASETS[args.dataset](data_path)
-        # from attacker import AttackerModel
-        # attackermodel = AttackerModel(model, dataset)
-        # import torch as ch
-        # resume_path = args.resumed_checkpoint_path
-        # import dill
-        # if resume_path:
-        #     if os.path.isfile(resume_path):
-        #         print("=> loading checkpoint '{}'".format(resume_path))
-        #         checkpoint = ch.load(resume_path, pickle_module=dill)['state_dict']
-        #         # Makes us able to load models saved with legacy versions
-        #         state_dict_path = 'model'
-        #         if not ('model' in checkpoint):
-        #             state_dict_path = 'state_dict'
-        #         # 这里这些参数我还没搞懂是啥意思，model.后面应该是原本模型的参数，attacker.model和这四个平均值我还不知道是什么意思
-        #         sd = {}
-        #         for key in checkpoint.keys():
-        #             modelstring = 'model.module.' + key.replace('module.','')
-        #             attackerstring = 'attacker.model.module.' + key.replace('module.','')
-        #             sd[modelstring] = checkpoint[key]
-        #             sd[attackerstring] = checkpoint[key]
-        #         # 这里先写一个强行的判断，把这个属性加进去
-        #         print(dataset.ds_name)
-        #         if dataset.ds_name == 'cifar':
-        #             sd['normalizer.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]], device='cuda:0')
-        #             sd['normalizer.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]], device='cuda:0')
-        #             sd['attacker.normalize.new_mean'] = ch.tensor([[[0.4914]], [[0.4822]], [[0.4465]]],
-        #                                                           device='cuda:0')
-        #             sd['attacker.normalize.new_std'] = ch.tensor([[[0.2023]], [[0.1994]], [[0.2010]]],
-        #                                                          device='cuda:0')
-        #         anomalous_keys=attackermodel.load_state_dict(sd, False)
-        #
-        #
-        #         attackermodel = ch.nn.DataParallel(attackermodel)
-        #         attackermodel = attackermodel.cuda()
-        # train_loader, val_loader = dataset.make_loaders(args.workers,
-        #                                                 args.batch_size, data_aug=bool(args.data_aug))
-        # import helpers
-        # train_loader = helpers.DataPrefetcher(train_loader)
-        # val_loader = helpers.DataPrefetcher(val_loader)
-        # logtext=train.eval_model(args, attackermodel, val_loader, store=None)
-        # msglogger.info(logtext)
         import torch.quantization as tq
         if args.quantized:
             model = model.to('cpu')
@@ -173,6 +129,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         import copy
         ADVmodel=copy.deepcopy(model)
         if args.adv == '1':
+            ADVmodel.eval()
             import numpy as np
             import torch.nn as nn
             import torch.optim as optim
@@ -180,21 +137,26 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             from art.classifiers import PyTorchClassifier
             from art.utils import load_cifar10
             (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
-            x_train = np.swapaxes(x_train, 1, 3).astype(np.float32)
+            print(x_test.shape)
+            mean=np.mean(x_test,axis=0)
+            std=np.std(x_test,axis=0)
+            # print('dfdf',mean,std)
+            x_test=(x_test-0.5)/0.5
             x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
+            x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
             ADVcriterion = nn.CrossEntropyLoss()
             ADVoptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
             ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion,
-                                              optimizer=ADVoptimizer, input_shape=(1, 32, 32), nb_classes=10)
-            predictions = ADVclassifier.predict(x_test)
+                                              optimizer=ADVoptimizer, input_shape=(3, 32, 32), nb_classes=10)
+            predictions = ADVclassifier.predict(x_test,batch_size=16)
             accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             print('Accuracy on benign test examples: {}%'.format(accuracy * 100))
-            # attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
-            # x_test_adv = attack.generate(x=x_test)
-            # predictions = ADVclassifier.predict(x_test_adv)
-            # accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            # print('Accuracy on adversarial test examples: {}%'.format(accuracy * 100))
+            attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
+            x_test_adv = attack.generate(x=x_test)
+            predictions = ADVclassifier.predict(x_test_adv,batch_size=16)
+            accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            print('Accuracy on adversarial test examples: {}%'.format(accuracy * 100))
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                   classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                   args, scheduler=compression_scheduler)

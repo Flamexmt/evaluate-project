@@ -62,6 +62,7 @@ def test(test_loader, args):  # test the accuracy and fairness of the model
     correct_list = {}  # correct num in each category
     total_list = {}  # total num of each category
     predicted_list = {}  # predicted num of ecah category
+    ff=True
     if args.dataset == 'cifar10':  # calculate the base fairness on cifar 10
         for i in range(10):
             correct_list[i] = 0
@@ -72,23 +73,10 @@ def test(test_loader, args):  # test the accuracy and fairness of the model
             output = model(data)
             predict = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
             correct += predict.eq(target.data.view_as(predict)).cpu().sum()
-            for i in range(batchsize):
-                total_list[target[i].item()] += 1
-                predicted_list[predict[i].item()] += 1
-                if target[i] == predict[i]:
-                    correct_list[target[i].item()] += 1
-
-        for i in range(10):
-            print('category', i, file=logfile)
-            print('total', total_list[i], file=logfile)
-            print('predicted num', predicted_list[i], file=logfile)
-            print('Recall', round(correct_list[i] / total_list[i] * 100, 2), '%', file=logfile)
-            print('Precision', round(correct_list[i] / predicted_list[i] * 100, 2), '%', file=logfile)
-            print('-----------------------------', file=logfile)
     endtime = datetime.datetime.now()
 
     print('\nTest set: Accuracy: {}/{} ({:.0f}%)\n'.format(
         correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)), file=logfile)
+        100. * correct / len(test_loader.dataset)))
     print('time cost is', (endtime - starttime), 'seconds.', file=logfile)
     print('file size is', os.path.getsize(args.checkpoint_path), 'bytes.', file=logfile)  # print the size of the file
