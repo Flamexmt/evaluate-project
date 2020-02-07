@@ -125,7 +125,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             qmodel = tq.quantize_dynamic(model, inplace=True)
             model = qmodel
             msglogger.info('model is quantized to ', args.quantized, 'bits')
-        msglogger.info(print_size_of_model(model))
         import copy
         ADVmodel=copy.deepcopy(model)
         if args.adv == '1':
@@ -149,17 +148,19 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion,
                                               optimizer=ADVoptimizer, input_shape=(3, 32, 32), nb_classes=10)
-            predictions = ADVclassifier.predict(x_test,batch_size=16)
+            predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size)
             accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             print('Accuracy on benign test examples: {}%'.format(accuracy * 100))
             attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
             x_test_adv = attack.generate(x=x_test)
-            predictions = ADVclassifier.predict(x_test_adv,batch_size=16)
+            predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
             accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            print('Accuracy on adversarial test examples: {}%'.format(accuracy * 100))
+            msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy * 100))
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                   classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                   args, scheduler=compression_scheduler)
+        msglogger.info(args.resume_from)
+        msglogger.info(print_size_of_model(model))
         do_exit = True
     elif args.thinnify:
         assert args.resumed_checkpoint_path is not None, \
