@@ -135,19 +135,25 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             from art.attacks import FastGradientMethod
             from art.classifiers import PyTorchClassifier
             from art.utils import load_cifar10
-            (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
-            print(x_test.shape)
-            mean=np.mean(x_test,axis=0)
-            std=np.std(x_test,axis=0)
-            # print('dfdf',mean,std)
-            x_test=(x_test-0.5)/0.5
-            x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
-            x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
+            from art.utils import load_mnist
             ADVcriterion = nn.CrossEntropyLoss()
             ADVoptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+            advinput=(3,32,32)
+            if 'cifar' in args.data:
+                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
+                x_test = (x_test - 0.5) / 0.5
+            elif 'mnist' in args.data:
+                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_mnist(args.data)
+                x_test = (x_test - 0.1307) / 0.3081
+                advinput = (1, 28, 28)
+            x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
+            x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
+
+            print(x_test.shape)
+
             ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion,
-                                              optimizer=ADVoptimizer, input_shape=(3, 32, 32), nb_classes=10)
+                                              optimizer=ADVoptimizer, input_shape=advinput, nb_classes=10)
             predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size)
             accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             print('Accuracy on benign test examples: {}%'.format(accuracy * 100))
