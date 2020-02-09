@@ -12,14 +12,14 @@ pruners:
     class:  AutomatedGradualPruner
     initial_sparsity : 0.05
     final_sparsity: 0.70
-    weights: [module.conv2.weight]
+    weights: [module.conv2.weight ]
 
   fc_pruner:
     class: L1RankedStructureParameterPruner_AGP
     initial_sparsity : 0.05
     final_sparsity: 0.50
     group_type: Rows
-    weights: [module.fc1.weight,  module.fc2.weight]
+    weights: [module.fc.weight]
 
 
 lr_schedulers:
@@ -32,7 +32,7 @@ extensions:
   net_thinner:
       class: 'FilterRemover'
       thinning_func_str: remove_filters
-      arch: 'simplenet_mnist'
+      arch: 'simplenet_v2_mnist'
       dataset: 'mnist'
 
 
