@@ -165,7 +165,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                   classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                   args, scheduler=compression_scheduler)
-        msglogger.info(args.resume_from)
+        msglogger.info(args.resumed_checkpoint_path)
         msglogger.info(print_size_of_model(model))
         do_exit = True
     elif args.thinnify:
