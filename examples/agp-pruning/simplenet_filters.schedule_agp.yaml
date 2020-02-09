@@ -1,0 +1,72 @@
+version: 1
+
+pruners:
+  low_pruner:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.10
+    final_sparsity: 0.50
+    group_type: Filters
+    weights: [module.conv1.weight, module.conv2.weight]
+
+  fine_pruner:
+    class:  AutomatedGradualPruner
+    initial_sparsity : 0.05
+    final_sparsity: 0.70
+    weights: [module.conv1.weight,  module.conv2.weight]
+
+  fc_pruner:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.05
+    final_sparsity: 0.50
+    group_type: Rows
+    weights: [module.fc1.weight,  module.fc2.weight]
+
+
+lr_schedulers:
+  pruning_lr:
+    class: StepLR
+    step_size: 50
+    gamma: 0.10
+
+extensions:
+  net_thinner:
+      class: 'FilterRemover'
+      thinning_func_str: remove_filters
+      arch: 'simplenet_mnist'
+      dataset: 'mnist'
+
+
+policies:
+  - pruner:
+      instance_name : low_pruner
+    starting_epoch: 0
+    ending_epoch: 30
+    frequency: 2
+
+# After completing the pruning, we perform network thinning and continue fine-tuning.
+# When there is ambiguity in the scheduling order of policies, Distiller follows the
+# order of declaration.  Because epoch 30 is the end of one pruner, and the beginning
+# of two others, and because we want the thinning to happen at the beginning of
+# epoch 30, it is important to declare the thinning policy here and not lower in the
+# file.
+  - extension:
+      instance_name: net_thinner
+    epochs: [30]
+
+  - pruner:
+      instance_name : fine_pruner
+    starting_epoch: 30
+    ending_epoch: 50
+    frequency: 2
+
+  - pruner:
+      instance_name : fc_pruner
+    starting_epoch: 30
+    ending_epoch: 50
+    frequency: 2
+
+  - lr_scheduler:
+      instance_name: pruning_lr
+    starting_epoch: 0
+    ending_epoch: 400
+    frequency: 1
