@@ -125,11 +125,12 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             qmodel = tq.quantize_dynamic(model, inplace=True)
             model = qmodel
             msglogger.info('model is quantized to ', args.quantized, 'bits')
-        import copy
-        ADVmodel=copy.deepcopy(model)
+            ADVmodel=model
+        else:
+            import copy
+            ADVmodel=copy.deepcopy(model)
         if args.adv == '1':
             ADVmodel.eval()
-            import numpy as np
             import torch.nn as nn
             import torch.optim as optim
             from art.attacks import FastGradientMethod
