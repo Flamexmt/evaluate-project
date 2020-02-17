@@ -93,7 +93,7 @@ extensions:
   net_thinner:
     class: 'FilterRemover'
     thinning_func_str: remove_filters
-    arch: 'resnet50'
+    arch: 'resnet18'
     dataset: 'imagenet'
 
 lr_schedulers:
