@@ -728,9 +728,11 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
     with torch.no_grad():
         for validation_step, (inputs, target) in enumerate(data_loader):
             inputs, target = inputs.to(args.device), target.to(args.device)
+            # print(inputs.shape,target.shape)
+            # print(target.data)
             # compute output from model
             output = model(inputs)
-
+            # print(output.shape,output.detach().shape,target.shape)
             if not _is_earlyexit(args):
                 # compute loss
                 loss = criterion(output, target)

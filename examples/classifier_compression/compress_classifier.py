@@ -125,10 +125,10 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             qmodel = tq.quantize_dynamic(model, inplace=True)
             model = qmodel
             msglogger.info('model is quantized to ', args.quantized, 'bits')
-            ADVmodel=model
+            ADVmodel = model
         else:
             import copy
-            ADVmodel=copy.deepcopy(model)
+            ADVmodel = copy.deepcopy(model)
         if args.adv == '1':
             ADVmodel.eval()
             import torch.nn as nn
@@ -137,9 +137,11 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             from art.classifiers import PyTorchClassifier
             from art.utils import load_cifar10
             from art.utils import load_mnist
+            from art.utils import load_iris
             ADVcriterion = nn.CrossEntropyLoss()
             ADVoptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
-            advinput=(3,32,32)
+            advinput = (3, 32, 32)
+            print(args.data)
             if 'cifar' in args.data:
                 (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
                 x_test = (x_test - 0.5) / 0.5
@@ -147,22 +149,43 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_mnist(args.data)
                 x_test = (x_test - 0.1307) / 0.3081
                 advinput = (1, 28, 28)
-            x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
-            x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
+            elif 'imagenet' in args.data:
+                import copy
 
-            print(x_test.shape)
+                for validation_step, (inputs, target) in enumerate(test_loader):
+                    print(validation_step, inputs.shape, target.shape)
+                    if validation_step == 0:
+                        x_test = copy.deepcopy(inputs).numpy()
+                        y_test = copy.deepcopy(target).numpy()
+                    else:
+                        x_temp = copy.deepcopy(inputs).numpy()
+                        y_temp = copy.deepcopy(target).numpy()
+                        x_test=np.append(x_test,x_temp, axis=0)
+                        y_test=np.append(y_test,y_temp, axis=0)
+                        # print(x_test.shape,y_test.shape)
+                        min_pixel_value=0
+                        max_pixel_value=1
+            if 'imagenet' not in args.data:
+                x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
+                x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
+            # print(x_test.shape, y_test.shape)
 
             ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion,
-                                              optimizer=ADVoptimizer, input_shape=advinput, nb_classes=10)
-            predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size)
-            accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            print('Accuracy on benign test examples: {}%'.format(accuracy * 100))
+                                              optimizer=ADVoptimizer, input_shape=advinput, nb_classes=1000)
+            predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size)
+            print(predictions.shape,y_test.shape)
+            import torchnet.meter as tnt
+            classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+            classerr.add(predictions, y_test)
+            accuracy = classerr.value()[0]
+            print('Accuracy on benign test examples: {}%'.format(accuracy))
             attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
             x_test_adv = attack.generate(x=x_test)
-            predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
-            accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy * 100))
+            predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
+            classerr.add(predictions, y_test)
+            accuracy = classerr.value()[0]
+            msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy))
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                   classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                   args, scheduler=compression_scheduler)
