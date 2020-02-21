@@ -122,13 +122,21 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         import torch.quantization as tq
         if args.quantized:
             model = model.to('cpu')
-            qmodel = tq.quantize_dynamic(model, inplace=True)
-            model = qmodel
-            msglogger.info('model is quantized to ', args.quantized, 'bits')
-            ADVmodel = model
+            qmodel = tq.quantize_dynamic(model, inplace=False)
+            msglogger.info('model before quantized')
+            msglogger.info(print_size_of_model(model))
+            msglogger.info('model is quantized')
+            msglogger.info(print_size_of_model(qmodel))
+
+            msglogger.info(print_size_of_model(qmodel))
+            import copy
+            ADVmodel = copy.deepcopy(model)
+            ADVqmodel = qmodel
         else:
             import copy
             ADVmodel = copy.deepcopy(model)
+
+        msglogger.info(args.resumed_checkpoint_path)
         if args.adv == '1':
             ADVmodel.eval()
             import torch.nn as nn
@@ -141,6 +149,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             ADVcriterion = nn.CrossEntropyLoss()
             ADVoptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
             advinput = (3, 32, 32)
+            classnum = 10
             print(args.data)
             if 'cifar' in args.data:
                 (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
@@ -151,20 +160,20 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 advinput = (1, 28, 28)
             elif 'imagenet' in args.data:
                 import copy
-
+                classnum = 1000
                 for validation_step, (inputs, target) in enumerate(test_loader):
-                    print(validation_step, inputs.shape, target.shape)
+                    # print(validation_step, inputs.shape, target.shape)
                     if validation_step == 0:
                         x_test = copy.deepcopy(inputs).numpy()
                         y_test = copy.deepcopy(target).numpy()
                     else:
                         x_temp = copy.deepcopy(inputs).numpy()
                         y_temp = copy.deepcopy(target).numpy()
-                        x_test=np.append(x_test,x_temp, axis=0)
-                        y_test=np.append(y_test,y_temp, axis=0)
+                        x_test = np.append(x_test, x_temp, axis=0)
+                        y_test = np.append(y_test, y_temp, axis=0)
                         # print(x_test.shape,y_test.shape)
-                        min_pixel_value=0
-                        max_pixel_value=1
+                        min_pixel_value = 0
+                        max_pixel_value = 1
             if 'imagenet' not in args.data:
                 x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
                 x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
@@ -172,9 +181,15 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
 
             ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion,
-                                              optimizer=ADVoptimizer, input_shape=advinput, nb_classes=1000)
+                                              optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
+
+            if args.quantized:
+                ADVQclassifier = PyTorchClassifier(model=ADVqmodel, clip_values=(min_pixel_value, max_pixel_value),
+                                                   loss=ADVcriterion,
+                                                   optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
+
+            print('start predition')
             predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size)
-            print(predictions.shape,y_test.shape)
             import torchnet.meter as tnt
             classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
             classerr.add(predictions, y_test)
@@ -182,10 +197,15 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             print('Accuracy on benign test examples: {}%'.format(accuracy))
             attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
             x_test_adv = attack.generate(x=x_test)
-            predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
+            if args.quantized:
+                predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
+            else:
+                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
+
             classerr.add(predictions, y_test)
             accuracy = classerr.value()[0]
             msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy))
+
         classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                   classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                   args, scheduler=compression_scheduler)
