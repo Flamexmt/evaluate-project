@@ -26,7 +26,7 @@ This ResNet also has layer gates, to be able to dynamically remove layers.
                Xiangyu Zhang and
                Shaoqing Ren and
                Jian Sun},
-  title     = {Deep Residual Learning for Image Recognition},
+  title     = { },
   booktitle = {{CVPR}},
   pages     = {770--778},
   publisher = {{IEEE} Computer Society},

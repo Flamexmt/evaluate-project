@@ -127,13 +127,20 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             msglogger.info(print_size_of_model(model))
             msglogger.info('model is quantized')
             msglogger.info(print_size_of_model(qmodel))
-
-            msglogger.info(print_size_of_model(qmodel))
+            classifier.evaluate_model(test_loader, qmodel, criterion, pylogger,
+                                      classifier.create_activation_stats_collectors(model, *args.activation_stats),
+                                      args, scheduler=compression_scheduler)
+            msglogger.info(args.resumed_checkpoint_path)
             import copy
             ADVmodel = copy.deepcopy(model)
             ADVqmodel = qmodel
         else:
             import copy
+            classifier.evaluate_model(test_loader, model, criterion, pylogger,
+                                      classifier.create_activation_stats_collectors(model, *args.activation_stats),
+                                      args, scheduler=compression_scheduler)
+            msglogger.info(args.resumed_checkpoint_path)
+            msglogger.info(print_size_of_model(model))
             ADVmodel = copy.deepcopy(model)
 
         msglogger.info(args.resumed_checkpoint_path)
@@ -178,25 +185,26 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
                 x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
             # print(x_test.shape, y_test.shape)
-
             ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion,
                                               optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
-
             if args.quantized:
                 ADVQclassifier = PyTorchClassifier(model=ADVqmodel, clip_values=(min_pixel_value, max_pixel_value),
                                                    loss=ADVcriterion,
                                                    optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
 
-            print('start predition')
-            predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size)
+            #            if args.quantized:
+            #                predictions = ADVQclassifier.predict(x_test_adv,batch_size=args.batch_size)
+            #            else:
+            #                predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
             import torchnet.meter as tnt
             classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
-            classerr.add(predictions, y_test)
-            accuracy = classerr.value()[0]
-            print('Accuracy on benign test examples: {}%'.format(accuracy))
+            #            classerr.add(predictions, y_test)
+            #            accuracy = classerr.value()[0]
+            #           print('Accuracy on benign test examples: {}%'.format(accuracy))
             attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
             x_test_adv = attack.generate(x=x_test)
+            print('start asv predition')
             if args.quantized:
                 predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
             else:
@@ -205,12 +213,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             classerr.add(predictions, y_test)
             accuracy = classerr.value()[0]
             msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy))
-
-        classifier.evaluate_model(test_loader, model, criterion, pylogger,
-                                  classifier.create_activation_stats_collectors(model, *args.activation_stats),
-                                  args, scheduler=compression_scheduler)
-        msglogger.info(args.resumed_checkpoint_path)
-        msglogger.info(print_size_of_model(model))
         do_exit = True
     elif args.thinnify:
         assert args.resumed_checkpoint_path is not None, \
