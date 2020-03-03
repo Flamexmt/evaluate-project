@@ -64,41 +64,61 @@
 
 version: 1
 pruners:
-  conv50_pruner:
-    class: 'AutomatedGradualPruner'
-    initial_sparsity : 0.15
-    final_sparsity: 0.50
-    weights: [module.model.4.3.weight, module.model.5.3.weight, module.model.6.3.weight, module.model.7.3.weight,
-              module.model.8.3.weight, module.model.9.3.weight, module.model.10.3.weight, module.model.11.3.weight,
-              module.model.12.3.weight, module.model.13.3.weight]
-
-  conv60_pruner:
-    class: 'AutomatedGradualPruner'
-    initial_sparsity : 0.15
+  low_pruner:
+    class: AutomatedGradualPruner
+    initial_sparsity : 0.05
     final_sparsity: 0.60
-    weights: [module.fc.weight]
+    weights: [ module.model.3.0.weight,
+              module.model.3.3.weight,  module.model.4.0.weight,
+              module.model.4.3.weight,  module.model.5.0.weight,  module.model.5.3.weight,
+              module.model.6.0.weight,module.model.6.3.weight,module.model.7.0.weight,
+               module.model.7.3.weight,module.model.8.0.weight,module.model.8.3.weight,
+               module.model.9.0.weight,module.model.9.3.weight ]
+
+  mid_pruner:
+    class:  AutomatedGradualPruner
+    initial_sparsity : 0.05
+    final_sparsity: 0.67
+    weights: [module.model.10.0.weight,  module.model.10.3.weight,
+              module.model.12.0.weight ,  module.model.12.3.weight,module.model.11.0.weight,module.model.11.3.weight
+              module.model.13.0.weight,  module.model.13.3.weight]
+
+  high_pruner:
+    class:  AutomatedGradualPruner
+    initial_sparsity : 0.05
+    final_sparsity: 0.76
+    weights: [module.model.0.0.weight,  module.model.1.0.weight,
+              module.model.1.3.weight,  module.model.2.0.weight,
+              module.model.2.3.weight]
 
 lr_schedulers:
-  pruning_lr:
-    class: StepLR
-    step_size: 30
-    gamma: 0.10
+   pruning_lr:
+     class: ExponentialLR
+     gamma: 0.9
+
 
 policies:
+
   - pruner:
-      instance_name : 'conv50_pruner'
+      instance_name : low_pruner
     starting_epoch: 0
-    ending_epoch: 20
+    ending_epoch: 16
     frequency: 2
 
   - pruner:
-      instance_name : 'conv60_pruner'
-    starting_epoch: 0
-    ending_epoch: 20
+      instance_name : mid_pruner
+    starting_epoch: 4
+    ending_epoch: 16
+    frequency: 2
+
+  - pruner:
+      instance_name : high_pruner
+    starting_epoch: 4
+    ending_epoch: 16
     frequency: 2
 
   - lr_scheduler:
       instance_name: pruning_lr
-    starting_epoch: 0
+    starting_epoch: 13
     ending_epoch: 100
     frequency: 1
