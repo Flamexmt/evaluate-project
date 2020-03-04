@@ -193,15 +193,20 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                                    loss=ADVcriterion,
                                                    optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
 
-            #            if args.quantized:
-            #                predictions = ADVQclassifier.predict(x_test_adv,batch_size=args.batch_size)
-            #            else:
-            #                predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
+                       # if args.quantized:
+                       #     predictions = ADVQclassifier.predict(x_test_adv,batch_size=args.batch_size)
+                       # else:
+                       #     predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
+            predictions=ADVclassifier.predict(x_test,batch_size=args.batch_size)
             import torchnet.meter as tnt
-            classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
-            #            classerr.add(predictions, y_test)
-            #            accuracy = classerr.value()[0]
-            #           print('Accuracy on benign test examples: {}%'.format(accuracy))
+            if 'imagenet' in args.data:
+                classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+                classerr.add(predictions, y_test)
+                accuracy = classerr.value()[0]
+            else:
+                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+                print(accuracy)
+
             attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
             x_test_adv = attack.generate(x=x_test)
             print('start asv predition')
@@ -209,9 +214,12 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
             else:
                 predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
-
-            classerr.add(predictions, y_test)
-            accuracy = classerr.value()[0]
+            if 'imagenet' in args.data:
+                classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+                classerr.add(predictions, y_test)
+                accuracy = classerr.value()[0]
+            else:
+                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy))
         do_exit = True
     elif args.thinnify:
