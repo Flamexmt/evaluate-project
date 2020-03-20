@@ -39,7 +39,7 @@ import math
 import torch.utils.model_zoo as model_zoo
 from distiller.modules import EltwiseAdd
 
-__all__ = ['resnet20_cifar', 'resnet32_cifar', 'resnet44_cifar', 'resnet56_cifar']
+__all__ = ['resnet20_cifar', 'resnet32_cifar', 'resnet44_cifar', 'resnet56_cifar','resnet26_cifar','resnet14_cifar']
 
 NUM_CLASSES = 10
 
@@ -148,11 +148,15 @@ class ResNetCifar(nn.Module):
             return final, pre_out
         return final
 
-
+def resnet14_cifar(**kwargs):
+    model = ResNetCifar(BasicBlock, [2, 2, 2], **kwargs)
+    return model
 def resnet20_cifar(**kwargs):
     model = ResNetCifar(BasicBlock, [3, 3, 3], **kwargs)
     return model
-
+def resnet26_cifar(**kwargs):
+    model = ResNetCifar(BasicBlock, [4, 4, 4], **kwargs)
+    return model
 def resnet32_cifar(**kwargs):
     model = ResNetCifar(BasicBlock, [5, 5, 5], **kwargs)
     return model
