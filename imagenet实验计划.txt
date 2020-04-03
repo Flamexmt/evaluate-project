@@ -32,8 +32,17 @@ resnet18 kd+pruning:这个就是对上面跑出来的结果进行压缩
 python3 compress_classifier.py -a=mobilenet --data ../../data.imagenet/ --workers 3 --batch-size 64 --epochs=50 --lr=0.005 --compress=../agp-pruning/mobilenet.imagenet.schedule_agp.yaml  --out-dir ../../outputsdata/ --gpu 0 --vs=0 --resume-from (path to resnet18,kd) --reset-optimizer
 
 3/31新增：
-resnet50 knwoledge distilltion,compress to resnet34:
+resnet50 knwoledge distilltion,compress to resnet18:
 python3 compress_classifier.py -a=resnet18  --lr 0.005 -p 50 --data ../../data.imagenet/ --epochs 30  --out-dir ../../outputsdata/ --wd=0.0002 --vs=0 --batch-size 64 --workers 3 --confusion --kd-teacher resnet50 --kd-pretrained --kd-temp 5.0 --kd-dw 0.7 --kd-sw 0.3 --no_quantization --reset-optimizer --gpu 0
+
+4/31新增：
+resnet50 knwoledge distilltion,compress to resnet34:
+python3 compress_classifier.py -a=resnet34  --lr 0.005 -p 50 --data ../../data.imagenet/ --epochs 30  --out-dir ../../outputsdata/ --wd=0.0002 --vs=0 --batch-size 64 --workers 3  --kd-teacher resnet50 --kd-pretrained --kd-temp 5.0 --kd-dw 0.7 --kd-sw 0.3 --no_quantization --reset-optimizer --gpu 0
+
+resnet34,pruning,对上面这个的结果压缩:
+python3 compress_classifier.py -a=resnet34 --data ../../data.imagenet/ --workers 3 --batch-size 64 --epochs=50 --lr=0.005 --compress=../agp-pruning/resnet34.schedule_agp.yaml --resumf-from (path to resnet43) --out-dir ../../outputsdata/ --gpu 0 --vs=0
+
+
 
 
 参数含义：
