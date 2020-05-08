@@ -258,6 +258,10 @@ Greedy Pruning:
   --greedy-finetuning-policy {constant,linear-grow}
                         policy used for determining how long to fine-tune
 
-Added by xmt:
+Added by:
   --no_quantization
                     if uesd,quantized model ignore quantization metadata
+  --adv
+                  0 or 1, 1 means ues adv attack the model
+  --quantized
+                  8 means use pytorch quantization 8
