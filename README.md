@@ -6,7 +6,6 @@ This project is used to compress and evaluate cnn models. Compression part is fr
 ## After you have a python envrioment (>=3.7) and pip, run the following command.
 ### $ cd distiller
 ### $ pip3 install -e .
-
 # Run
 ## Run the test
 ### $ cd distiller/tests
