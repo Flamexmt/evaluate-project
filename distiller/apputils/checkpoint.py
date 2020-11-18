@@ -205,7 +205,8 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
     msglogger.info('=> Checkpoint contents:\n%s\n' % get_contents_table(checkpoint))
     if 'extras' in checkpoint:
         msglogger.info("=> Checkpoint['extras'] contents:\n{}\n".format(get_contents_table(checkpoint['extras'])))
-
+    if 'model' in checkpoint:
+        checkpoint['state_dict'] = checkpoint['model']
     if 'state_dict' not in checkpoint:
         raise ValueError("Checkpoint must contain the model parameters under the key 'state_dict'")
 

@@ -149,10 +149,10 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             import torch.nn as nn
             import torch.optim as optim
             from art.attacks import FastGradientMethod
+            from art.attacks import DeepFool
             from art.classifiers import PyTorchClassifier
             from art.utils import load_cifar10
             from art.utils import load_mnist
-            from art.utils import load_iris
             ADVcriterion = nn.CrossEntropyLoss()
             ADVoptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
             advinput = (3, 32, 32)
@@ -184,7 +184,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             if 'imagenet' not in args.data:
                 x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
                 x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
-            # print(x_test.shape, y_test.shape)
             ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion,
                                               optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
@@ -205,11 +204,9 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 accuracy = classerr.value()[0]
             else:
                 accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-                print(accuracy)
-
-            attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
-            x_test_adv = attack.generate(x=x_test)
             print('start asv predition')
+            attack = DeepFool(classifier=ADVclassifier,batch_size=32)
+            x_test_adv = attack.generate(x=x_test)
             if args.quantized:
                 predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
             else:

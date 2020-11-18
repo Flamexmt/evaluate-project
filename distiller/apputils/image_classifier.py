@@ -738,6 +738,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
                 loss = criterion(output, target)
                 # measure accuracy and record loss
                 losses['objective_loss'].add(loss.item())
+
                 classerr.add(output.detach(), target)
                 if args.display_confusion:
                     confusion.add(output.detach(), target)
