@@ -219,6 +219,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 accuracy = classerr.value()[0]
             else:
                 accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            msglogger.info(args.resumed_checkpoint_path)
             msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy))
         do_exit = True
     elif args.thinnify:

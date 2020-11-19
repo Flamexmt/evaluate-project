@@ -3,10 +3,10 @@ import os
 
 def run(arch, filepath):
     os.system(
-        "python compress_classifier.py -a=" + arch + " --data ../../data.cifar --workers 3 --batch-size 128 --evaluate --confusion --adv 1 --resume-from ../../outputsdata/" + filepath + "/checkpoint.pth.tar --out-dir ../../outputsdata/eval/resnet20_44_on_cifar/")
+        "python compress_classifier.py -a=" + arch + " --data ../../data.cifar --workers 3 --batch-size 64 --evaluate --confusion --adv 1 --resume-from ../../outputsdata/" + filepath + "/checkpoint.pth.tar --out-dir ../../outputsdata/eval/cwattack")
 
 
-run_list = [('resnet20_cifar', 'resnet20'),('resnet20_cifar', 'resnet20-apgpruning'), ('simplenet_cifar ', 'resnet20-realkd'),
+run_list = [('resnet20_cifar', 'resnet20-apgpruning'), ('simplenet_cifar ', 'resnet20-realkd'),
             ('simplenet_cifar', 'resnet20-realkd-apgpruning'), ('resnet44_cifar', 'resnet44'),
             ('resnet44_cifar', 'resnet44-apgpruning'), ('resnet20_cifar', 'resnet44-kd'),
             ('resnet20_cifar', 'resnet44-kd-apgpruning')]
