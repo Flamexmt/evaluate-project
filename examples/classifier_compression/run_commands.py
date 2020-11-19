@@ -3,7 +3,7 @@ import os
 
 def run(arch, filepath):
     os.system(
-        "python D:/study/model-compression/git-hub/evaluate-project/examples/classifier_compression/compress_classifier.py -a=" + arch + " --data ../../data.cifar --workers 3 --batch-size 128 --evaluate --confusion --adv 1 --resume-from ../../outputsdata/" + filepath + "/checkpoint.pth.tar --out-dir ../../outputsdata/eval/resnet20_44_on_cifar/")
+        "python classifier_compression/compress_classifier.py -a=" + arch + " --data ../../data.cifar --workers 3 --batch-size 128 --evaluate --confusion --adv 1 --resume-from ../../outputsdata/" + filepath + "/checkpoint.pth.tar --out-dir ../../outputsdata/eval/resnet20_44_on_cifar/")
 
 
 run_list = [('resnet20_cifar', 'resnet20'),('resnet20_cifar', 'resnet20-apgpruning'), ('simplenet_cifar ', 'resnet20-realkd'),
