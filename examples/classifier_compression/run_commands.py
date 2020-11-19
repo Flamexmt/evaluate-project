@@ -3,7 +3,7 @@ import os
 
 def run(arch, filepath):
     os.system(
-        "python compress_classifier.py -a=" + arch + " --data ../../data.cifar --workers 3 --batch-size 64 --evaluate --confusion --adv 1 --resume-from ../../outputsdata/" + filepath + "/checkpoint.pth.tar --out-dir ../../outputsdata/eval/cwattack")
+        "python compress_classifier.py -a=" + arch + " --data ../../data.cifar --workers 3 --batch-size 128 --evaluate --confusion --adv 1 --resume-from ../../outputsdata/" + filepath + "/checkpoint.pth.tar --out-dir ../../outputsdata/eval/cwattack --gpus 0")
 
 
 run_list = [('resnet20_cifar', 'resnet20-apgpruning'), ('simplenet_cifar ', 'resnet20-realkd'),
@@ -18,3 +18,5 @@ for item in run_list:
     end_time = datetime.datetime.now()
     print('finish runing', item, 'at', end_time)
     print((end_time - start_time))
+    break
+print('finish')
