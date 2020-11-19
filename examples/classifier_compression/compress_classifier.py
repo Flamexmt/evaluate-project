@@ -156,7 +156,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             print('adversrial test')
             import datetime
             for data in test_loader:
-                print('total:', total, '/10000')
                 stime = datetime.datetime.now()
                 images, labels = data
                 iamges = images.cuda()
@@ -167,9 +166,13 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 total += labels.size(0)
                 correct += (predicted == labels).sum()
                 etime = datetime.datetime.now()
-                print(etime - stime)
-                print(correct,'/',total)
-            print('adversrial correct', correct)
+                msglogger.info(etime - stime)
+                msglogger.info('total {} /10000'.format(int(total)))
+                msglogger.info('correct {}'.format(int(correct)))
+                if total > 100:
+                    break
+            msglogger.info(args.resumed_checkpoint_path)
+            msglogger.info('adversrial accuracy {}%'.format(100*int(correct)/int(total)))
             # import torch.nn as nn
             # import torch.optim as optim
             # from art.attacks import FastGradientMethod

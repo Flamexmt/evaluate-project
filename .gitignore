@@ -49,3 +49,4 @@ evaluate_tools/checkpoint.pt.best
 evaluate_tools/dictkeys.txt
 examples/classifier_compression/dictkeys.txt
 examples/classifier_compression/dictkeys
+examples/classifier_compression/log.txt
