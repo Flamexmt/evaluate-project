@@ -150,6 +150,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             import torch.optim as optim
             from art.attacks import FastGradientMethod
             from art.attacks import DeepFool
+            from art.attacks import CarliniL2Method
             from art.classifiers import PyTorchClassifier
             from art.utils import load_cifar10
             from art.utils import load_mnist
@@ -192,11 +193,11 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                                    loss=ADVcriterion,
                                                    optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
 
-                       # if args.quantized:
-                       #     predictions = ADVQclassifier.predict(x_test_adv,batch_size=args.batch_size)
-                       # else:
-                       #     predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
-            predictions=ADVclassifier.predict(x_test,batch_size=args.batch_size)
+                # if args.quantized:
+                #     predictions = ADVQclassifier.predict(x_test_adv,batch_size=args.batch_size)
+                # else:
+                #     predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
+            predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size)
             import torchnet.meter as tnt
             if 'imagenet' in args.data:
                 classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
@@ -205,7 +206,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             else:
                 accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             print('start asv predition')
-            attack = DeepFool(classifier=ADVclassifier,batch_size=32)
+            attack = CarliniL2Method(classifier=ADVclassifier, batch_size=64,learning_rate=0.05)
+            print('start generate attack')
             x_test_adv = attack.generate(x=x_test)
             if args.quantized:
                 predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)

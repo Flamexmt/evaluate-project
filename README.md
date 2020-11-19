@@ -19,4 +19,5 @@ This project is used to compress and evaluate cnn models. Compression part is fr
 ### $ cd examples/classifier_compression
 ### $ python compress_classifier.py -a=resnet44_cifar --data ../../data.cifar --workers 3 --batch-size 64 --evaluate --confusion --adv 1 --resume-from ../../outputsdata/resnet44/checkpoint.pth.tar --out-dir ../../outputsdata/eval/
 
+## compression-result.xlsx cotains the result of  expriments.
 
