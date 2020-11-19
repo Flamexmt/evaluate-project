@@ -169,8 +169,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info(etime - stime)
                 msglogger.info('total {} /10000'.format(int(total)))
                 msglogger.info('correct {}'.format(int(correct)))
-                if total > 100:
-                    break
             msglogger.info(args.resumed_checkpoint_path)
             msglogger.info('adversrial accuracy {}%'.format(100*int(correct)/int(total)))
             # import torch.nn as nn
