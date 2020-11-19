@@ -206,7 +206,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             else:
                 accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             print('start asv predition')
-            attack = CarliniL2Method(classifier=ADVclassifier, batch_size=64,learning_rate=0.05)
+            attack = CarliniL2Method(classifier=ADVclassifier, batch_size=64,learning_rate=0.05,binary_search_steps=500)
             print('start generate attack')
             x_test_adv = attack.generate(x=x_test)
             if args.quantized:
