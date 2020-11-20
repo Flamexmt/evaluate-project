@@ -234,46 +234,42 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             #     accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             import datetime
             attack = CarliniLInfMethod(classifier=ADVclassifier, batch_size=64, learning_rate=0.05)
-            x_test_adv = attack.generate(x=x_test)
+            x_test_adv = attack.generate(x=x_test[:100])
             if args.quantized:
                 x_test_adv_tensor = torch.from_numpy(x_test_adv)
                 y_test_temp = np.where(y_test==1)[1]
-                y_test_adv_tensor = torch.from_numpy(y_test_temp)
-                x_test_adv_tensor = x_test_adv_tensor
-                ADVmodel = ADVmodel
+                y_test_adv_tensor = torch.from_numpy(y_test_temp).to('cpu')
+                x_test_adv_tensor = x_test_adv_tensor.to('cpu')
+                ADVqmodel = ADVqmodel.to('cpu')
                 batch_size = args.batch_size
                 bathc_range = x_test_adv_tensor.shape[0]/batch_size
                 total = 0
                 correct = 0
-                for batch in range(int(bathc_range)):
+                for batch in range(int(bathc_range+1)):
                     if (batch+1)*batch_size<x_test_adv_tensor.shape[0]:
                         test_x = x_test_adv_tensor[batch*batch_size:(batch+1)*batch_size,:,:,:]
                         test_y = y_test_adv_tensor[batch*batch_size:(batch+1)*batch_size]
                     else:
                         test_x = x_test_adv_tensor[batch*batch_size:,:,:,:]
                         test_y = y_test_adv_tensor[batch*batch_size:]
-                    test_x = test_x
-                    test_y = test_y
-                    outputs = ADVmodel(test_x)
+                    outputs = ADVqmodel(test_x)
                     _, predicted = torch.max(outputs.data, 1)
                     total += test_x.size(0)
                     correct += (predicted == test_y).sum()
                     print('correct',int(correct))
                     print('total',int(total))
-                msglogger.info('accuracy{}%'.format(100*int(correct)/int(total)))
+                msglogger.info('adversiral accuracy{}%'.format(int(correct)/int(total)))
                 # predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
             else:
-                print('s')
                 x_test_adv_tensor = torch.from_numpy(x_test_adv)
                 y_test_temp = np.where(y_test==1)[1]
                 y_test_adv_tensor = torch.from_numpy(y_test_temp)
-                x_test_adv_tensor = x_test_adv_tensor.to('cpu')
                 ADVmodel = ADVmodel.cuda()
                 batch_size = args.batch_size
                 bathc_range = x_test_adv_tensor.shape[0]/batch_size
                 total = 0
                 correct = 0
-                for batch in range(int(bathc_range)):
+                for batch in range(int(bathc_range+1)):
                     if (batch+1)*batch_size<x_test_adv_tensor.shape[0]:
                         test_x = x_test_adv_tensor[batch*batch_size:(batch+1)*batch_size,:,:,:]
                         test_y = y_test_adv_tensor[batch*batch_size:(batch+1)*batch_size]
@@ -286,9 +282,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     _, predicted = torch.max(outputs.data, 1)
                     total += test_x.size(0)
                     correct += (predicted == test_y).sum()
-                    print('correct',int(correct))
-                    print('total',int(total))
-                msglogger.info('accuracy{}%'.format(100*int(correct)/int(total)))
+
+                msglogger.info('Accuracy on adversarial test examples self test:{}%'.format(100*int(correct)/int(total)))
                 print('s')
                 predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
             if 'imagenet' in args.data:
@@ -298,7 +293,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             else:
                 accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             msglogger.info(args.resumed_checkpoint_path)
-            msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy))
+            msglogger.info('Accuracy on adversarial test examples: {}%'.format(100*accuracy))
         do_exit = True
     elif args.thinnify:
         assert args.resumed_checkpoint_path is not None, \
