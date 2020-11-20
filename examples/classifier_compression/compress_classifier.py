@@ -147,104 +147,108 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
 
         msglogger.info(args.resumed_checkpoint_path)
         if args.adv == '1':
-            ADVmodel.eval()
-            testmodel = ADVqmodel if args.quantized else ADVmodel
-            import torchattacks
-            tattack = torchattacks.CW(model=testmodel, c=1)
-            total = 0
-            correct = 0
-            print('adversrial test')
-            import datetime
-            for data in test_loader:
-                stime = datetime.datetime.now()
-                images, labels = data
-                iamges = images.cuda()
-                labels = labels.cuda()
-                adversarial_images = tattack(images, labels)
-                outputs = testmodel(adversarial_images)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum()
-                etime = datetime.datetime.now()
-                msglogger.info(etime - stime)
-                msglogger.info('total {} /10000'.format(int(total)))
-                msglogger.info('correct {}'.format(int(correct)))
-            msglogger.info(args.resumed_checkpoint_path)
-            msglogger.info('adversrial accuracy {}%'.format(100*int(correct)/int(total)))
-            # import torch.nn as nn
-            # import torch.optim as optim
-            # from art.attacks import FastGradientMethod
-            # from art.attacks import CarliniL2Method
-            # from art.classifiers import PyTorchClassifier
-            # from art.utils import load_cifar10
-            # from art.utils import load_mnist
-            # ADVcriterion = nn.CrossEntropyLoss()
-            # ADVoptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
-            # advinput = (3, 32, 32)
-            # classnum = 10
-            # print(args.data)
-            # if 'cifar' in args.data:
-            #     (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
-            #     x_test = (x_test - 0.5) / 0.5
-            # elif 'mnist' in args.data:
-            #     (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_mnist(args.data)
-            #     x_test = (x_test - 0.1307) / 0.3081
-            #     advinput = (1, 28, 28)
-            # elif 'imagenet' in args.data:
-            #     import copy
-            #     classnum = 1000
-            #     for validation_step, (inputs, target) in enumerate(test_loader):
-            #         if validation_step == 0:
-            #             x_test = copy.deepcopy(inputs).numpy()
-            #             y_test = copy.deepcopy(target).numpy()
-            #         else:
-            #             x_temp = copy.deepcopy(inputs).numpy()
-            #             y_temp = copy.deepcopy(target).numpy()
-            #             x_test = np.append(x_test, x_temp, axis=0)
-            #             y_test = np.append(y_test, y_temp, axis=0)
-            #             min_pixel_value = 0
-            #             max_pixel_value = 1
-            # if 'imagenet' not in args.data:
-            #     x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
-            #     x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
-            # ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
-            #                                   loss=ADVcriterion,
-            #                                   optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
-            # if args.quantized:
-            #     ADVQclassifier = PyTorchClassifier(model=ADVqmodel, clip_values=(min_pixel_value, max_pixel_value),
-            #                                        loss=ADVcriterion,
-            #                                        optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
-            #
-            #     # if args.quantized:
-            #     #     predictions = ADVQclassifier.predict(x_test_adv,batch_size=args.batch_size)
-            #     # else:
-            #     #     predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
-            # predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size)
-            # import torchnet.meter as tnt
-            # if 'imagenet' in args.data:
-            #     classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
-            #     classerr.add(predictions, y_test)
-            #     accuracy = classerr.value()[0]
-            # else:
-            #     accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            #
-            # print('start asv predition')
-            #
-            #
-            # attack = CarliniL2Method(classifier=ADVclassifier, batch_size=64, learning_rate=0.05)
-            # x_test_adv = attack.generate(x=x_test)
-            # if args.quantized:
-            #     predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
-            # else:
-            #     predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
-            # if 'imagenet' in args.data:
-            #     classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
-            #     classerr.add(predictions, y_test)
-            #     accuracy = classerr.value()[0]
-            # else:
-            #     accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            # ADVmodel.eval()
+            # testmodel = ADVqmodel if args.quantized else ADVmodel
+            # import torchattacks
+            # tattack = torchattacks.CW(model=testmodel, c=1)
+            # total = 0
+            # correct = 0
+            # success = 0
+            # print('adversrial test')
+            # import datetime
+            # for data in test_loader:
+            #     stime = datetime.datetime.now()
+            #     images, labels = data
+            #     iamges = images.cuda()
+            #     labels = labels.cuda()
+            #     adversarial_images = tattack(images, labels)
+            #     outputs = testmodel(adversarial_images)
+            #     _, predicted = torch.max(outputs.data, 1)
+            #     normal_outputs = testmodel(images)
+            #     total += labels.size(0)
+            #     correct += (predicted == labels).sum()
+            #     etime = datetime.datetime.now()
+            #     msglogger.info(etime - stime)
+            #     msglogger.info('total {} /10000'.format(int(total)))
+            #     msglogger.info('correct {}'.format(int(correct)))
             # msglogger.info(args.resumed_checkpoint_path)
-            # msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy))
+            # msglogger.info('adversrial accuracy {}%'.format(100*int(correct)/int(total)))
+            import torch.nn as nn
+            import torch.optim as optim
+            from art.attacks import FastGradientMethod
+            from art.attacks import ProjectedGradientDescent
+            from art.attacks import CarliniL2Method
+            from art.classifiers import PyTorchClassifier
+            from art.utils import load_cifar10
+            from art.utils import load_mnist
+            ADVcriterion = nn.CrossEntropyLoss()
+            ADVoptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+            advinput = (3, 32, 32)
+            classnum = 10
+            print(args.data)
+            if 'cifar' in args.data:
+                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
+                x_test = (x_test - 0.5) / 0.5
+            elif 'mnist' in args.data:
+                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_mnist(args.data)
+                x_test = (x_test - 0.1307) / 0.3081
+                advinput = (1, 28, 28)
+            elif 'imagenet' in args.data:
+                import copy
+                classnum = 1000
+                for validation_step, (inputs, target) in enumerate(test_loader):
+                    if validation_step == 0:
+                        x_test = copy.deepcopy(inputs).numpy()
+                        y_test = copy.deepcopy(target).numpy()
+                    else:
+                        x_temp = copy.deepcopy(inputs).numpy()
+                        y_temp = copy.deepcopy(target).numpy()
+                        x_test = np.append(x_test, x_temp, axis=0)
+                        y_test = np.append(y_test, y_temp, axis=0)
+                        min_pixel_value = 0
+                        max_pixel_value = 1
+            if 'imagenet' not in args.data:
+                x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
+                x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
+            ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
+                                              loss=ADVcriterion,
+                                              optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
+            if args.quantized:
+                ADVQclassifier = PyTorchClassifier(model=ADVqmodel, clip_values=(min_pixel_value, max_pixel_value),
+                                                   loss=ADVcriterion,
+                                                   optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
+
+                # if args.quantized:
+                #     predictions = ADVQclassifier.predict(x_test_adv,batch_size=args.batch_size)
+                # else:
+                #     predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
+            predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size)
+            import torchnet.meter as tnt
+            if 'imagenet' in args.data:
+                classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+                classerr.add(predictions, y_test)
+                accuracy = classerr.value()[0]
+            else:
+                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+
+            print('start asv predition')
+
+
+            # attack = CarliniL2Method(classifier=ADVclassifier, batch_size=64, learning_rate=0.05)
+            attack = ProjectedGradientDescent(ADVclassifier,batch_size=128)
+            x_test_adv = attack.generate(x=x_test)
+            if args.quantized:
+                predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
+            else:
+                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
+            if 'imagenet' in args.data:
+                classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+                classerr.add(predictions, y_test)
+                accuracy = classerr.value()[0]
+            else:
+                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            msglogger.info(args.resumed_checkpoint_path)
+            msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy))
         do_exit = True
     elif args.thinnify:
         assert args.resumed_checkpoint_path is not None, \
