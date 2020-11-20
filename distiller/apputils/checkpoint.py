@@ -258,7 +258,8 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
         if missing_keys:
             temp = {}
             for item in checkpoint['state_dict'].keys():
-                temp[item[7:]] = checkpoint['state_dict'][item]
+                name = item.replace('module.','')
+                temp[name] = checkpoint['state_dict'][item]
             anomalous_keys = model.load_state_dict(temp, strict)
             missing_keys, unexpected_keys = anomalous_keys
         if unexpected_keys:
