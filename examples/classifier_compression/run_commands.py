@@ -17,8 +17,8 @@ second_run_list = [('vgg16_cifar', 'vgg16-base(50)'), ('vgg16_cifar', 'vgg16-bas
             ('wideresnet_cifar', 'wideresnet-pruning'),
             ('resnet44_cifar', 'wideresnet-kd-resnet44'),
             ('resnet44_cifar', 'wideresnet-kd-resnet44-pruning')]
-third_run_list = [('resnet32', 'resnet44-kd-resnet32'), ('resnet32', 'resnet44-kd-resnet32-pruning'),
-                  ('resnet26', 'resnet44-kd-resnet26'), ('resnet32', 'resnet44-kd-resnet26-pruning'),]
+third_run_list = [('resnet32_cifar', 'resnet44-kd-resnet32'), ('resnet32_cifar', 'resnet44-kd-resnet32-pruning'),
+                  ('resnet26_cifar', 'resnet44-kd-resnet26'), ('resnet32_cifar', 'resnet44-kd-resnet26-pruning'),]
 import datetime
 for item in run_list:
     start_time = datetime.datetime.now()
@@ -27,4 +27,5 @@ for item in run_list:
     end_time = datetime.datetime.now()
     print('finish runing', item, 'at', end_time)
     print((end_time - start_time))
+    break
 print('finish')
