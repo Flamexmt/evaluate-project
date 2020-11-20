@@ -129,26 +129,28 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             msglogger.info(print_size_of_model(model))
             msglogger.info('model is quantized')
             msglogger.info(print_size_of_model(qmodel))
-            classifier.evaluate_model(test_loader, qmodel, criterion, pylogger,
+            if args.adv != '1':
+                classifier.evaluate_model(test_loader, qmodel, criterion, pylogger,
                                       classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                       args, scheduler=compression_scheduler)
-            msglogger.info(args.resumed_checkpoint_path)
+                msglogger.info(args.resumed_checkpoint_path)
             import copy
             ADVmodel = copy.deepcopy(model)
             ADVqmodel = qmodel
         else:
             import copy
-            classifier.evaluate_model(test_loader, model, criterion, pylogger,
+            if args.adv != '1':
+                classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                       classifier.create_activation_stats_collectors(model, *args.activation_stats),
                                       args, scheduler=compression_scheduler)
-            msglogger.info(args.resumed_checkpoint_path)
-            msglogger.info(print_size_of_model(model))
+                msglogger.info(args.resumed_checkpoint_path)
+                msglogger.info(print_size_of_model(model))
             ADVmodel = copy.deepcopy(model)
 
         msglogger.info(args.resumed_checkpoint_path)
         if args.adv == '1':
-            # ADVmodel.eval()
-            # testmodel = ADVqmodel if args.quantized else ADVmodel
+            ADVmodel.eval()
+            testmodel = ADVqmodel if args.quantized else ADVmodel
             # import torchattacks
             # tattack = torchattacks.CW(model=testmodel, c=1)
             # total = 0
@@ -180,9 +182,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             # msglogger.info('adversrial accuracy {}%'.format(100*int(correct)/int(total)))
             import torch.nn as nn
             import torch.optim as optim
-            from art.attacks import FastGradientMethod
-            from art.attacks import CarliniL2Method
-            from art.attacks import  CarliniLInfMethod
+            from art.attacks.evasion import CarliniLInfMethod
             from art.classifiers import PyTorchClassifier
             from art.utils import load_cifar10
             from art.utils import load_mnist
@@ -219,32 +219,77 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                               loss=ADVcriterion,
                                               optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
             if args.quantized:
+                ADVqmodel = ADVqmodel.to('cpu')
                 ADVQclassifier = PyTorchClassifier(model=ADVqmodel, clip_values=(min_pixel_value, max_pixel_value),
                                                    loss=ADVcriterion,
                                                    optimizer=ADVoptimizer, input_shape=advinput, nb_classes=classnum)
 
-                # if args.quantized:
-                #     predictions = ADVQclassifier.predict(x_test_adv,batch_size=args.batch_size)
-                # else:
-                #     predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
-            predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size)
+            # predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size)
             import torchnet.meter as tnt
-            if 'imagenet' in args.data:
-                classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
-                classerr.add(predictions, y_test)
-                accuracy = classerr.value()[0]
-            else:
-                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            # if 'imagenet' in args.data:
+            #     classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+            #     classerr.add(predictions, y_test)
+            #     accuracy = classerr.value()[0]
+            # else:
+            #     accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             import datetime
-            stime = datetime.datetime.now()
-            print('start adv generate at', stime)
             attack = CarliniLInfMethod(classifier=ADVclassifier, batch_size=64, learning_rate=0.05)
             x_test_adv = attack.generate(x=x_test)
-            etime =datetime.datetime.now()
-            print('end adv generate at',etime-stime)
             if args.quantized:
-                predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
+                x_test_adv_tensor = torch.from_numpy(x_test_adv)
+                y_test_temp = np.where(y_test==1)[1]
+                y_test_adv_tensor = torch.from_numpy(y_test_temp)
+                x_test_adv_tensor = x_test_adv_tensor
+                ADVmodel = ADVmodel
+                batch_size = args.batch_size
+                bathc_range = x_test_adv_tensor.shape[0]/batch_size
+                total = 0
+                correct = 0
+                for batch in range(int(bathc_range)):
+                    if (batch+1)*batch_size<x_test_adv_tensor.shape[0]:
+                        test_x = x_test_adv_tensor[batch*batch_size:(batch+1)*batch_size,:,:,:]
+                        test_y = y_test_adv_tensor[batch*batch_size:(batch+1)*batch_size]
+                    else:
+                        test_x = x_test_adv_tensor[batch*batch_size:,:,:,:]
+                        test_y = y_test_adv_tensor[batch*batch_size:]
+                    test_x = test_x
+                    test_y = test_y
+                    outputs = ADVmodel(test_x)
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += test_x.size(0)
+                    correct += (predicted == test_y).sum()
+                    print('correct',int(correct))
+                    print('total',int(total))
+                msglogger.info('accuracy{}%'.format(100*int(correct)/int(total)))
+                # predictions = ADVQclassifier.predict(x_test_adv, batch_size=args.batch_size)
             else:
+                print('s')
+                x_test_adv_tensor = torch.from_numpy(x_test_adv)
+                y_test_temp = np.where(y_test==1)[1]
+                y_test_adv_tensor = torch.from_numpy(y_test_temp)
+                x_test_adv_tensor = x_test_adv_tensor.to('cpu')
+                ADVmodel = ADVmodel.cuda()
+                batch_size = args.batch_size
+                bathc_range = x_test_adv_tensor.shape[0]/batch_size
+                total = 0
+                correct = 0
+                for batch in range(int(bathc_range)):
+                    if (batch+1)*batch_size<x_test_adv_tensor.shape[0]:
+                        test_x = x_test_adv_tensor[batch*batch_size:(batch+1)*batch_size,:,:,:]
+                        test_y = y_test_adv_tensor[batch*batch_size:(batch+1)*batch_size]
+                    else:
+                        test_x = x_test_adv_tensor[batch*batch_size:,:,:,:]
+                        test_y = y_test_adv_tensor[batch*batch_size:]
+                    test_x = test_x.cuda()
+                    test_y = test_y.cuda()
+                    outputs = ADVmodel(test_x)
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += test_x.size(0)
+                    correct += (predicted == test_y).sum()
+                    print('correct',int(correct))
+                    print('total',int(total))
+                msglogger.info('accuracy{}%'.format(100*int(correct)/int(total)))
+                print('s')
                 predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
             if 'imagenet' in args.data:
                 classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
