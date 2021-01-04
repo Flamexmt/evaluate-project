@@ -49,3 +49,8 @@ evaluate_tools/checkpoint.pt.best
 evaluate_tools/dictkeys.txt
 examples/classifier_compression/dictkeys.txt
 examples/classifier_compression/dictkeys
+/llvm/
+/examples/classifier_compression/adversarial_robustness_toolbox-1.4.2-py3-none-any.whl
+/extra/
+/outputsdata.zip
+/llvm-3.6.0.src.tar.xz
