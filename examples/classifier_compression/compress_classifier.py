@@ -279,21 +279,40 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             model = model.to('cpu')
             ADVclassifier = PyTorchClassifier(model=model, clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
-            # msglogger.info('do normal test')
-            # predictions = ADVclassifier.predict(x_test)
-            # accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            # msglogger.info("Accuracy on SquareAttack: {}%".format(accuracy * 100))
+
+            x_test = x_test[:100]
+            y_test = y_test[:100]
+            msglogger.info('do normal test')
+            normal_predictions = ADVclassifier.predict(x_test)
+            accuracy = np.sum(np.argmax(normal_predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            msglogger.info("Accuracy on normal test: {}%".format(accuracy * 100))
 
             if args.white_attack == '1':
                 msglogger.info('--------------------')
-                msglogger.info('do cw test!')
+                msglogger.info('do CarliniL2Method Attack test!')
                 from art.attacks.evasion import CarliniL2Method
                 cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.batch_size)
                 x_test_adv = cw_attack.generate(x=x_test[:])
                 msglogger.info('success generate CarliniL2Method Attack')
                 predictions = ADVclassifier.predict(x_test_adv)
                 accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-                msglogger.info("Accuracy on CarliniL2Method Attack: {}%".format(accuracy * 100))
+                msglogger.info("Accuracy under CarliniL2Method Attack: {}%".format(accuracy * 100))
+                success_rate = np.sum(np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(y_test)
+                msglogger.info("Attack sucess of CarliniL2Method Attack: {}%".format(success_rate * 100))
+
+
+                msglogger.info('--------------------')
+                msglogger.info('do cw test!')
+                from art.attacks.evasion import ProjectedGradientDescent
+                cw_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.batch_size)
+                x_test_adv = cw_attack.generate(x=x_test[:])
+                msglogger.info('success generate ProjectedGradientDescent Attack')
+                predictions = ADVclassifier.predict(x_test_adv)
+                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+                msglogger.info("Accuracy under ProjectedGradientDescent Attack: {}%".format(accuracy * 100))
+                success_rate = np.sum(np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
+                    y_test)
+                msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
 
             msglogger.info('--------------------')
             msglogger.info('do SquareAttack test!')
@@ -303,7 +322,10 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             msglogger.info('success generate SquareAttack')
             predictions = ADVclassifier.predict(x_test_adv)
             accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            msglogger.info("Accuracy on SquareAttack: {}%".format(accuracy * 100))
+            msglogger.info("Accuracy under SquareAttack: {}%".format(accuracy * 100))
+            success_rate = np.sum(np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
+                y_test)
+            msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
 
             msglogger.info('--------------------')
             msglogger.info('do Extraction Attack test!')
