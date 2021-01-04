@@ -483,6 +483,9 @@ def execute_thinning_recipe(model, zeros_mask_dict, recipe, optimizer, loaded_fr
     for layer_name, directives in recipe.modules.items():
         for attr, val in directives.items():
             if attr in ['running_mean', 'running_var']:
+                if layer_name not in layers:
+                    if 'module' in layer_name:
+                        layer_name = layer_name.replace('module.','')
                 running = getattr(layers[layer_name], attr)
                 dim_to_trim = val[0]
                 indices_to_select = val[1]
@@ -494,6 +497,9 @@ def execute_thinning_recipe(model, zeros_mask_dict, recipe, optimizer, loaded_fr
                             torch.index_select(running, dim=dim_to_trim, index=indices_to_select.to(running.device)))
             else:
                 msglogger.debug("[thinning] {}: setting {} to {}".format(layer_name, attr, val))
+                if layer_name not in layers:
+                    if 'module' in layer_name:
+                        layer_name = layer_name.replace('module.','')
                 setattr(layers[layer_name], attr, val)
 
     assert len(recipe.parameters) > 0
@@ -503,6 +509,7 @@ def execute_thinning_recipe(model, zeros_mask_dict, recipe, optimizer, loaded_fr
             if param_name == "module.fc.weight":
                 debug = True
             msglogger.debug("{} : {}".format(param_name, param_directives))
+            print(param_name)
             param = distiller.model_find_param(model, param_name)
             assert param is not None
             for directive in param_directives:

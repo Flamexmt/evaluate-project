@@ -26,7 +26,7 @@ This ResNet also has layer gates, to be able to dynamically remove layers.
                Xiangyu Zhang and
                Shaoqing Ren and
                Jian Sun},
-  title     = {Deep Residual Learning for Image Recognition},
+  title     = { },
   booktitle = {{CVPR}},
   pages     = {770--778},
   publisher = {{IEEE} Computer Society},
@@ -36,10 +36,11 @@ This ResNet also has layer gates, to be able to dynamically remove layers.
 """
 import torch.nn as nn
 import math
+import torch
 import torch.utils.model_zoo as model_zoo
 from distiller.modules import EltwiseAdd
-
-__all__ = ['resnet20_cifar', 'resnet32_cifar', 'resnet44_cifar', 'resnet56_cifar']
+from distiller.models.cifar10.resnet_cifar_quantized import ResNetCifar_quantized
+__all__ = ['resnet20_cifar', 'resnet32_cifar', 'resnet44_cifar', 'resnet56_cifar','resnet26_cifar','resnet14_cifar','resnet8_cifar']
 
 NUM_CLASSES = 10
 
@@ -85,8 +86,8 @@ class BasicBlock(nn.Module):
 
 
 class ResNetCifar(nn.Module):
-
     def __init__(self, block, layers, num_classes=NUM_CLASSES):
+
         self.nlayers = 0
         # Each layer manages its own gates
         self.layer_gates = []
@@ -147,12 +148,20 @@ class ResNetCifar(nn.Module):
         if with_latent:
             return final, pre_out
         return final
-
-
+    def quantize_self(self):
+        return ResNetCifar_quantized(self)
+def resnet8_cifar(**kwargs):
+    model = ResNetCifar(BasicBlock, [1, 1, 1], **kwargs)
+    return model
+def resnet14_cifar(**kwargs):
+    model = ResNetCifar(BasicBlock, [2, 2, 2], **kwargs)
+    return model
 def resnet20_cifar(**kwargs):
     model = ResNetCifar(BasicBlock, [3, 3, 3], **kwargs)
     return model
-
+def resnet26_cifar(**kwargs):
+    model = ResNetCifar(BasicBlock, [4, 4, 4], **kwargs)
+    return model
 def resnet32_cifar(**kwargs):
     model = ResNetCifar(BasicBlock, [5, 5, 5], **kwargs)
     return model

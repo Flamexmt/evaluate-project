@@ -29,6 +29,7 @@ from tabulate import tabulate
 import torch
 import distiller
 from distiller.utils import normalize_module_name
+
 msglogger = logging.getLogger()
 
 
@@ -52,7 +53,7 @@ def save_checkpoint(epoch, arch, model, optimizer=None, scheduler=None,
         raise IOError(ENOENT, 'Checkpoint directory does not exist at', os.path.abspath(dir))
 
     if extras is None:
-        extras = {}
+        extras = {'quantized': False, 'half': False}
     if not isinstance(extras, dict):
         raise TypeError('extras must be either a dict or None')
 
@@ -60,15 +61,15 @@ def save_checkpoint(epoch, arch, model, optimizer=None, scheduler=None,
     prue_filename = 'checkpoint.pth' if name is None else name + '_checkpoint.pth'
 
     fullpath = os.path.join(dir, filename)
-    prue_fullpath = os.path.join(dir,  prue_filename)
+    prue_fullpath = os.path.join(dir, prue_filename)
     msglogger.info("Saving checkpoint to: %s" % fullpath)
     filename_best = 'best.pth.tar' if name is None else name + '_best.pth.tar'
-    prue_filename_best= 'best.pth' if name is None else name + '_best.pth'
+    prue_filename_best = 'best.pth' if name is None else name + '_best.pth'
     fullpath_best = os.path.join(dir, filename_best)
     prue_fullpath_best = os.path.join(dir, prue_filename_best)
 
     checkpoint = {'epoch': epoch, 'state_dict': model.state_dict(), 'arch': arch}
-    prue_checkpoint=model.state_dict()
+    prue_checkpoint = model.state_dict()
     try:
         checkpoint['is_parallel'] = model.is_parallel
         checkpoint['dataset'] = model.dataset
@@ -89,11 +90,10 @@ def save_checkpoint(epoch, arch, model, optimizer=None, scheduler=None,
 
     checkpoint['extras'] = extras
     torch.save(checkpoint, fullpath)
-    torch.save(prue_checkpoint,prue_fullpath)
+    torch.save(prue_checkpoint, prue_fullpath)
     if is_best:
         shutil.copyfile(fullpath, fullpath_best)
         shutil.copyfile(prue_fullpath, prue_fullpath_best)
-
 
 
 def load_lean_checkpoint(model, chkpt_file, model_device=None):
@@ -115,7 +115,7 @@ def get_contents_table(d):
 
 
 def load_checkpoint(model, chkpt_file, optimizer=None,
-                    model_device=None, lean_checkpoint=False, strict=False,still_quantization=True):
+                    model_device=None, lean_checkpoint=False, strict=False, still_quantization=True):
     """Load a pytorch training checkpoint.
 
     Args:
@@ -130,6 +130,7 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
                 This should be set to either 'cpu' or 'cuda'.
     :returns: updated model, compression_scheduler, optimizer, start_epoch
     """
+
     def _load_compression_scheduler():
         normalize_keys = False
         try:
@@ -161,17 +162,17 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
             # Initialize the dest_optimizer with a dummy learning rate,
             # this is required to support SGD.__init__()
             dest_optimizer = cls(model.parameters(), lr=1)
-            if len(src_state_dict['param_groups'])>1:
+            if len(src_state_dict['param_groups']) > 1:
                 src_state_dict['param_groups'].pop()
                 dest_optimizer.load_state_dict(src_state_dict)
             else:
                 dest_optimizer.load_state_dict(src_state_dict)
             msglogger.info('Optimizer of type {type} was loaded from checkpoint'.format(
-                            type=type(dest_optimizer)))
+                type=type(dest_optimizer)))
             optimizer_param_groups = dest_optimizer.state_dict()['param_groups']
             msglogger.info('Optimizer Args: {}'.format(
-                            dict((k, v) for k, v in optimizer_param_groups[0].items()
-                                 if k != 'params')))
+                dict((k, v) for k, v in optimizer_param_groups[0].items()
+                     if k != 'params')))
             return dest_optimizer
         except KeyError:
             # Older checkpoints do support optimizer loading: They either had an 'optimizer' field
@@ -205,7 +206,8 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
     msglogger.info('=> Checkpoint contents:\n%s\n' % get_contents_table(checkpoint))
     if 'extras' in checkpoint:
         msglogger.info("=> Checkpoint['extras'] contents:\n{}\n".format(get_contents_table(checkpoint['extras'])))
-
+    if 'model' in checkpoint:
+        checkpoint['state_dict'] = checkpoint['model']
     if 'state_dict' not in checkpoint:
         raise ValueError("Checkpoint must contain the model parameters under the key 'state_dict'")
 
@@ -233,7 +235,7 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
             compression_scheduler = distiller.CompressionScheduler(model)
         _load_and_execute_thinning_recipes()
     optimizer = _load_optimizer()
-# if pruning is after quantizer,then do not skip this!
+    # if pruning is after quantizer,then do not skip this!
     if 'quantizer_metadata' in checkpoint and still_quantization:
         msglogger.info('Loaded quantizer metadata from the checkpoint')
         qmd = checkpoint['quantizer_metadata']
@@ -243,6 +245,18 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
 
     if normalize_dataparallel_keys:
         checkpoint['state_dict'] = {normalize_module_name(k): v for k, v in checkpoint['state_dict'].items()}
+    try:
+        if checkpoint['extras']['quantized']:
+            fused_model = model.quantize_self()
+            fused_model.eval()
+            fused_model.fuse_self()
+            model_fp32_prepared = torch.quantization.prepare(fused_model, inplace=False)
+            model_fp32_prepared.eval()
+            model = torch.quantization.convert(model_fp32_prepared)
+        if checkpoint['extras']['half']:
+            model.half()
+    except:
+        msglogger.warning('miss extra info!')
     anomalous_keys = model.load_state_dict(checkpoint['state_dict'], strict)
     missing_keys, unexpected_keys = anomalous_keys
 
@@ -257,21 +271,21 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
         if missing_keys:
             temp = {}
             for item in checkpoint['state_dict'].keys():
-                temp[item[7:]] = checkpoint['state_dict'][item]
+                name = item.replace('module.', '')
+                temp[name] = checkpoint['state_dict'][item]
             anomalous_keys = model.load_state_dict(temp, strict)
             missing_keys, unexpected_keys = anomalous_keys
         if unexpected_keys:
-            print('unexpected_keys',unexpected_keys)
+            print('unexpected_keys', unexpected_keys)
             msglogger.warning("Warning: the loaded checkpoint (%s) contains %d unexpected state keys" %
                               (chkpt_file, len(unexpected_keys)))
         if missing_keys:
-            print('missing_keys',missing_keys)
+            print('missing_keys', missing_keys)
             raise ValueError("The loaded checkpoint (%s) is missing %d state keys" %
                              (chkpt_file, len(missing_keys)))
 
     if model_device is not None:
         model.to(model_device)
-
 
     msglogger.info("=> loaded checkpoint '{f}' (epoch {e})".format(f=str(chkpt_file),
                                                                    e=checkpoint_epoch))

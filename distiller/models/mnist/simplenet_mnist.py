@@ -18,7 +18,7 @@
  
 The original network definition is sourced here: https://github.com/pytorch/examples/blob/master/mnist/main.py
 """
-
+import torch.quantization.stubs
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -29,6 +29,8 @@ __all__ = ['simplenet_mnist', 'simplenet_v2_mnist']
 class Simplenet(nn.Module):
     def __init__(self):
         super().__init__()
+        self.quant = torch.quantization.stubs.QuantStub()
+        self.dequant = torch.quantization.stubs.DeQuantStub()
         self.conv1 = nn.Conv2d(1, 20, 5, 1)
         self.relu1 = nn.ReLU(inplace=False)
         self.pool1 = nn.MaxPool2d(2, 2)
@@ -40,13 +42,18 @@ class Simplenet(nn.Module):
         self.fc2 = nn.Linear(500, 10)
         
     def forward(self, x):
-        x = self.pool1(self.relu1(self.conv1(x)))
+        x = self.quant(x)
+        x = self.relu1(self.conv1(x))
+        x = self.pool1(x)
         x = self.pool2(self.relu2(self.conv2(x)))
-        x = x.view(x.size(0), -1)
+        x = x.contiguous().view(x.size(0), -1)
         x = self.relu3(self.fc1(x))
         x = self.fc2(x)
+        x = self.dequant(x)
         return x
-
+    def fuse_model(self):
+        modules_to_fuse = [['conv1',  'relu1'],['conv2','relu2']]
+        torch.quantization.fuse_modules(self, modules_to_fuse,inplace=True)
 
 class Simplenet_v2(nn.Module):
     """

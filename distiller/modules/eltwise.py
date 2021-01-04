@@ -22,15 +22,15 @@ class EltwiseAdd(nn.Module):
         super(EltwiseAdd, self).__init__()
 
         self.inplace = inplace
-
+        self.skip_add = nn.quantized.FloatFunctional()
     def forward(self, *input):
         res = input[0]
         if self.inplace:
             for t in input[1:]:
-                res += t
+               res = self.skip_add.add(res,t)
         else:
             for t in input[1:]:
-                res = res + t
+                res = self.skip_add.add(res, t)
         return res
 
 

@@ -421,7 +421,7 @@ def _init_learner(args):
             optimizer = None
             msglogger.info('\nreset_optimizer flag set: Overriding resumed optimizer and resetting epoch count to 0')
 
-    if optimizer is None:
+    if optimizer is None and args.evaluate==False:
         optimizer = torch.optim.SGD(model.parameters(), lr=args.lr,
                                     momentum=args.momentum, weight_decay=args.weight_decay)
         msglogger.debug('Optimizer Type: %s', type(optimizer))
@@ -728,14 +728,17 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
     with torch.no_grad():
         for validation_step, (inputs, target) in enumerate(data_loader):
             inputs, target = inputs.to(args.device), target.to(args.device)
+            # print(inputs.shape,target.shape)
+            # print(target.data)
             # compute output from model
             output = model(inputs)
-
+            # print(output.shape,output.detach().shape,target.shape)
             if not _is_earlyexit(args):
                 # compute loss
                 loss = criterion(output, target)
                 # measure accuracy and record loss
                 losses['objective_loss'].add(loss.item())
+
                 classerr.add(output.detach(), target)
                 if args.display_confusion:
                     confusion.add(output.detach(), target)
@@ -753,9 +756,18 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
     if not _is_earlyexit(args):
         msglogger.info('==> Top1: %.3f    Top5: %.3f    Loss: %.3f\n',
                        classerr.value()[0], classerr.value()[1], losses['objective_loss'].mean)
-
+        np.set_printoptions(threshold=np.inf)
         if args.display_confusion:
             msglogger.info('==> Confusion:\n%s\n', str(confusion.value()))
+            correct_number = confusion.value().diagonal()
+            accracy = []
+            for line in range(len(confusion.value())):
+                accracy.append(correct_number[line]/confusion.value()[line].sum())
+            msglogger.info('category accuracy is ')
+            msglogger.info(str(accracy))
+            msglogger.info('\n')
+
+            msglogger.info('\n')
         return classerr.value(1), classerr.value(5), losses['objective_loss'].mean
     else:
         total_top1, total_top5, losses_exits_stats = earlyexit_validate_stats(args)

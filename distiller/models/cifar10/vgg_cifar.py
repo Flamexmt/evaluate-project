@@ -24,7 +24,7 @@ We replaced the three linear classifiers with a single one.
 """
 
 import torch.nn as nn
-
+from distiller.models.cifar10.vgg_cifar_quantized import  VggCifar_quantized
 __all__ = [
     'VGGCifar', 'vgg11_cifar', 'vgg11_bn_cifar', 'vgg13_cifar', 'vgg13_bn_cifar', 'vgg16_cifar', 'vgg16_bn_cifar',
     'vgg19_bn_cifar', 'vgg19_cifar',
@@ -57,7 +57,8 @@ class VGGCifar(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
-
+    def quantize_self(self):
+        return VggCifar_quantized(self)
 
 def make_layers(cfg, batch_norm=False):
     layers = []
@@ -79,7 +80,7 @@ cfg = {
     'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'B': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'D': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
-    'E': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
+    'E': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M']
 }
 
 

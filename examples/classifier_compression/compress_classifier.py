@@ -54,6 +54,9 @@ models, or with the provided sample models:
 import traceback
 import logging
 from functools import partial
+
+from art.utils import load_cifar10, load_mnist
+
 import distiller
 from distiller.models import create_model
 import distiller.apputils.image_classifier as classifier
@@ -61,7 +64,18 @@ import distiller.apputils as apputils
 import cmdparser
 import os
 import numpy as np
+import torch
 
+from torch import nn
+
+import torch.nn.intrinsic as nni
+import torch.nn.intrinsic.quantized as nniq
+import torch.nn.intrinsic.qat as nniqat
+import torch.nn.quantized as nnq
+import torch.nn.quantized.dynamic as nnqd
+import torch.nn.qat as nnqat
+from torch.quantization.stubs import QuantStub, DeQuantStub
+# Map for swapping float module to quantized ones
 # Logger handle
 msglogger = logging.getLogger()
 
@@ -82,6 +96,10 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
     def load_test_data(args):
         test_loader = classifier.load_data(args, load_train=False, load_val=False, load_test=True)
         return test_loader
+
+    def load_train_data(args):
+        train_loader = classifier.load_data(args, load_train=True, load_val=False, load_test=False)
+        return train_loader
 
     do_exit = False
     if args.greedy:
@@ -107,66 +125,207 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         do_exit = True
     elif args.sensitivity is not None:
         test_loader = load_test_data(args)
+        import numpy as np
         sensitivities = np.arange(*args.sensitivity_range)
         sensitivity_analysis(model, criterion, test_loader, pylogger, args, sensitivities)
         do_exit = True
     elif args.evaluate:
         def print_size_of_model(model):
             import torch
-            torch.save(model.state_dict(), "temp.p")
+            temp = model.state_dict()
+            torch.save(temp, "temp.p")
             size = 'Size (MB):' + str(os.path.getsize("temp.p") / 1e6)
             os.remove('temp.p')
             return size
 
         test_loader = load_test_data(args)
+
         import torch.quantization as tq
-        if args.quantized:
-            model = model.to('cpu')
-            qmodel = tq.quantize_dynamic(model, inplace=True)
-            model = qmodel
-            msglogger.info('model is quantized to ', args.quantized, 'bits')
-        import copy
-        ADVmodel=copy.deepcopy(model)
+        from distiller.models.cifar10.resnet_cifar_quantized import ResNetCifar_quantized
+        if args.quantized == '8':
+            model = model.to(torch.device('cpu'))
+            if isinstance(model, torch.nn.DataParallel):
+                model = model.module
+            # model.fuse_model()
+            import copy
+            if 'imagenet' in args.data:
+                quantization_config = torch.quantization.get_default_qconfig("fbgemm")
+                model.eval()
+                fused_model = model.fuse_model()
+                fused_model.qconfig = quantization_config
+            else:
+                fused_model = copy.deepcopy(model)
+                fused_model = fused_model.quantize_self()
+                fused_model.eval()
+                fused_model.fuse_self()
+            model_fp32_prepared = torch.quantization.prepare(fused_model, inplace=False)
+            model_fp32_prepared.eval()
+
+            def calibrate_model(model, loader):
+                print('start test!!')
+                model.eval()
+                i = 0
+                for inputs, labels in loader:
+                    _ = model(inputs)
+                    print(i, '/', len(loader))
+                    i += 1
+
+            if 'imagenet' in args.data:
+                calibrate_data = test_loader
+            else:
+                calibrate_data = load_train_data(args)
+            calibrate_model(model_fp32_prepared, calibrate_data)
+            model_int8 = torch.quantization.convert(model_fp32_prepared)
+            print(model_int8)
+            # save point
+            from distiller.apputils.checkpoint import save_checkpoint
+            save_checkpoint(epoch=0, model=model_int8, arch=args.arch, name='quantized_' + args.arch,
+                            dir='../../outputsdata/eval/quantized_models/', extras={'quantized': True})
+            model_int8.eval()
+            msglogger.info('model before quantized')
+            msglogger.info(print_size_of_model(model))
+            msglogger.info('model is quantized')
+            msglogger.info(print_size_of_model(model_int8))
+            print(2)
+            # print('float')
+            # classifier.evaluate_model(test_loader, model_fp32_prepared, criterion, pylogger,
+            #                           classifier.create_activation_stats_collectors(model_fp32_prepared,
+            #                                                                         *args.activation_stats),
+            #                           args, scheduler=compression_scheduler)
+            print('int')
+            classifier.evaluate_model(test_loader, model_int8, criterion, pylogger,
+                                          classifier.create_activation_stats_collectors(model_int8,
+                                                                                        *args.activation_stats),
+                                          args, scheduler=compression_scheduler)
+            msglogger.info(args.resumed_checkpoint_path)
+        elif args.quantized =='16':
+            if isinstance(model, torch.nn.DataParallel):
+                model = model.module
+            # model.fuse_model()
+            msglogger.info('model before half')
+            msglogger.info(print_size_of_model(model))
+            model.half()
+            msglogger.info('model is half')
+            msglogger.info(print_size_of_model(model))
+            from distiller.apputils.checkpoint import save_checkpoint
+            save_checkpoint(epoch=0, model=model, arch=args.arch, name='half_' + args.arch,
+                            dir='../../outputsdata/eval/quantized_models/', extras={'half_': True})
+            if 'imagenet' in args.data:
+                calibrate_data = test_loader
+            else:
+                calibrate_data = load_train_data(args)
+            # save point
+            model.eval()
+
+            print('float 16')
+            correct = 0
+            for input,label in test_loader:
+                input = input.half()
+                input = input.cuda()
+                label = label.cuda()
+                outputs = model(input)
+                _, predicted = torch.max(outputs.data, 1)
+                correct += (predicted == label).sum()
+            msglogger.info('accuracy {}'.format(int(correct) / int(10000)))
+            msglogger.info(args.resumed_checkpoint_path)
+        else:
+            if args.adv!='1':
+                import copy
+                # model.fuse_model()
+                classifier.evaluate_model(test_loader, model, criterion, pylogger,
+                                          classifier.create_activation_stats_collectors(model, *args.activation_stats),
+                                          args, scheduler=compression_scheduler)
+                msglogger.info(print_size_of_model(model))
+                # ADVmodel = copy.deepcopy(model)
         if args.adv == '1':
-            ADVmodel.eval()
             import numpy as np
             import torch.nn as nn
+            import  art.config
             import torch.optim as optim
-            from art.attacks import FastGradientMethod
-            from art.classifiers import PyTorchClassifier
-            from art.utils import load_cifar10
-            from art.utils import load_mnist
+            from art.classifiers import  PyTorchClassifier
+
+            #prepare tester
             ADVcriterion = nn.CrossEntropyLoss()
-            ADVoptimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
-            advinput=(3,32,32)
+            #load data
+            advinput = (3, 32, 32)
+            classnum = 10
             if 'cifar' in args.data:
-                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(args.data)
+                art.config.ART_DATA_PATH = args.data
+                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10()
                 x_test = (x_test - 0.5) / 0.5
             elif 'mnist' in args.data:
-                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_mnist(args.data)
+                art.config.ART_DATA_PATH = args.data
+                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_mnist()
                 x_test = (x_test - 0.1307) / 0.3081
                 advinput = (1, 28, 28)
-            x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
-            x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
+            elif 'imagenet' in args.data:
+                import copy
+                classnum = 1000
+                for validation_step, (inputs, target) in enumerate(test_loader):
+                    if validation_step == 0:
+                        x_test = copy.deepcopy(inputs).numpy()
+                        y_test = copy.deepcopy(target).numpy()
+                    else:
+                        x_temp = copy.deepcopy(inputs).numpy()
+                        y_temp = copy.deepcopy(target).numpy()
+                        x_test = np.append(x_test, x_temp, axis=0)
+                        y_test = np.append(y_test, y_temp, axis=0)
+                        min_pixel_value = 0
+                        max_pixel_value = 1
+            if 'imagenet' not in args.data:
+                x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
+                x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
+            model = model.to('cpu')
+            ADVclassifier = PyTorchClassifier(model=model, clip_values=(min_pixel_value, max_pixel_value),
+                                              loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+            # msglogger.info('do normal test')
+            # predictions = ADVclassifier.predict(x_test)
+            # accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            # msglogger.info("Accuracy on SquareAttack: {}%".format(accuracy * 100))
 
-            print(x_test.shape)
 
-            ADVclassifier = PyTorchClassifier(model=ADVmodel, clip_values=(min_pixel_value, max_pixel_value),
-                                              loss=ADVcriterion,
-                                              optimizer=ADVoptimizer, input_shape=advinput, nb_classes=10)
-            predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size)
+
+            msglogger.info('--------------------')
+            msglogger.info('do SquareAttack test!')
+            from art.attacks.evasion.square_attack import SquareAttack
+            square_attack = SquareAttack(estimator=ADVclassifier,batch_size=args.batch_size)
+            x_test_adv = square_attack.generate(x=x_test[:])
+            msglogger.info('success generate SquareAttack')
+            predictions = ADVclassifier.predict(x_test_adv)
             accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            print('Accuracy on benign test examples: {}%'.format(accuracy * 100))
-            attack = FastGradientMethod(classifier=ADVclassifier, eps=0.2)
-            x_test_adv = attack.generate(x=x_test)
-            predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
-            accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            msglogger.info('Accuracy on adversarial test examples: {}%'.format(accuracy * 100))
-        classifier.evaluate_model(test_loader, model, criterion, pylogger,
-                                  classifier.create_activation_stats_collectors(model, *args.activation_stats),
-                                  args, scheduler=compression_scheduler)
+            msglogger.info("Accuracy on SquareAttack: {}%".format(accuracy * 100))
+
+
+            msglogger.info('--------------------')
+            msglogger.info('do Extraction Attack test!')
+            from art.attacks.extraction.knockoff_nets import KnockoffNets
+            extraction_attack = KnockoffNets(classifier=ADVclassifier,nb_epochs=10,nb_stolen=10000,batch_size_fit=args.batch_size)
+            cifar_model =  distiller.models.create_model(args.pretrained, args.dataset, args.arch,
+                         parallel=not args.load_serialized, device_ids=args.gpus)
+            thief_optimizer = torch.optim.SGD(cifar_model.parameters(),lr=0.01)
+            thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model,optimizer=thief_optimizer, clip_values=(min_pixel_value, max_pixel_value),
+                                              loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+            black_box_model = extraction_attack.extract(x=x_test[:],thieved_classifier=thief_classifier)
+            msglogger.info('success generate Extraction Attack')
+            y_test_predicted_extracted = black_box_model.predict(x_test)
+            y_test_predicted_target = ADVclassifier.predict(x_test)
+            format_string =  np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / y_test.shape[0]
+
+            msglogger.info( "Victime model - Test accuracy:")
+            msglogger.info(str(format_string))
+            format_string =      np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / y_test.shape[0]
+            msglogger.info(
+                "Extracted model - Test accuracy:")
+            msglogger.info(str(format_string))
+            format_string =         np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1))/ y_test_predicted_target.shape[0]
+            msglogger.info(
+                "Extracted model - Test Fidelity:" )
+            msglogger.info(str(format_string))
+
+
+
         msglogger.info(args.resumed_checkpoint_path)
-        msglogger.info(print_size_of_model(model))
+
         do_exit = True
     elif args.thinnify:
         assert args.resumed_checkpoint_path is not None, \

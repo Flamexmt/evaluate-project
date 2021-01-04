@@ -26,7 +26,7 @@
 from collections import OrderedDict
 import torch.nn as nn
 from torchvision.models.resnet import ResNet, BasicBlock, Bottleneck, _resnet
-
+import torch
 from distiller.modules import EltwiseAdd
 
 
@@ -128,6 +128,7 @@ class DistillerBottleneck(Bottleneck):
         out = self.relu3(out)
 
         return out
+
 
 
 def resnet18(pretrained=False, progress=True, **kwargs):
