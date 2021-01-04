@@ -75,6 +75,7 @@ import torch.nn.quantized as nnq
 import torch.nn.quantized.dynamic as nnqd
 import torch.nn.qat as nnqat
 from torch.quantization.stubs import QuantStub, DeQuantStub
+
 # Map for swapping float module to quantized ones
 # Logger handle
 msglogger = logging.getLogger()
@@ -194,11 +195,11 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             #                           args, scheduler=compression_scheduler)
             print('int')
             classifier.evaluate_model(test_loader, model_int8, criterion, pylogger,
-                                          classifier.create_activation_stats_collectors(model_int8,
-                                                                                        *args.activation_stats),
-                                          args, scheduler=compression_scheduler)
+                                      classifier.create_activation_stats_collectors(model_int8,
+                                                                                    *args.activation_stats),
+                                      args, scheduler=compression_scheduler)
             msglogger.info(args.resumed_checkpoint_path)
-        elif args.quantized =='16':
+        elif args.quantized == '16':
             if isinstance(model, torch.nn.DataParallel):
                 model = model.module
             # model.fuse_model()
@@ -219,7 +220,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
 
             print('float 16')
             correct = 0
-            for input,label in test_loader:
+            for input, label in test_loader:
                 input = input.half()
                 input = input.cuda()
                 label = label.cuda()
@@ -229,7 +230,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             msglogger.info('accuracy {}'.format(int(correct) / int(10000)))
             msglogger.info(args.resumed_checkpoint_path)
         else:
-            if args.adv!='1':
+            if args.adv != '1':
                 import copy
                 # model.fuse_model()
                 classifier.evaluate_model(test_loader, model, criterion, pylogger,
@@ -240,18 +241,18 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         if args.adv == '1':
             import numpy as np
             import torch.nn as nn
-            import  art.config
+            import art.config
             import torch.optim as optim
-            from art.classifiers import  PyTorchClassifier
+            from art.classifiers import PyTorchClassifier
 
-            #prepare tester
+            # prepare tester
             ADVcriterion = nn.CrossEntropyLoss()
-            #load data
+            # load data
             advinput = (3, 32, 32)
             classnum = 10
             if 'cifar' in args.data:
                 art.config.ART_DATA_PATH = args.data
-                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10()
+                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(datapath=args.data)
                 x_test = (x_test - 0.5) / 0.5
             elif 'mnist' in args.data:
                 art.config.ART_DATA_PATH = args.data
@@ -283,46 +284,59 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             # accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             # msglogger.info("Accuracy on SquareAttack: {}%".format(accuracy * 100))
 
-
+            if args.white_attack == '1':
+                msglogger.info('--------------------')
+                msglogger.info('do cw test!')
+                from art.attacks.evasion import CarliniL2Method
+                cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.batch_size)
+                x_test_adv = cw_attack.generate(x=x_test[:])
+                msglogger.info('success generate CarliniL2Method Attack')
+                predictions = ADVclassifier.predict(x_test_adv)
+                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+                msglogger.info("Accuracy on CarliniL2Method Attack: {}%".format(accuracy * 100))
 
             msglogger.info('--------------------')
             msglogger.info('do SquareAttack test!')
             from art.attacks.evasion.square_attack import SquareAttack
-            square_attack = SquareAttack(estimator=ADVclassifier,batch_size=args.batch_size)
+            square_attack = SquareAttack(estimator=ADVclassifier, batch_size=args.batch_size)
             x_test_adv = square_attack.generate(x=x_test[:])
             msglogger.info('success generate SquareAttack')
             predictions = ADVclassifier.predict(x_test_adv)
             accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             msglogger.info("Accuracy on SquareAttack: {}%".format(accuracy * 100))
 
-
             msglogger.info('--------------------')
             msglogger.info('do Extraction Attack test!')
             from art.attacks.extraction.knockoff_nets import KnockoffNets
-            extraction_attack = KnockoffNets(classifier=ADVclassifier,nb_epochs=10,nb_stolen=10000,batch_size_fit=args.batch_size)
-            cifar_model =  distiller.models.create_model(args.pretrained, args.dataset, args.arch,
-                         parallel=not args.load_serialized, device_ids=args.gpus)
-            thief_optimizer = torch.optim.SGD(cifar_model.parameters(),lr=0.01)
-            thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model,optimizer=thief_optimizer, clip_values=(min_pixel_value, max_pixel_value),
-                                              loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
-            black_box_model = extraction_attack.extract(x=x_test[:],thieved_classifier=thief_classifier)
+            extraction_attack = KnockoffNets(classifier=ADVclassifier, nb_epochs=10, nb_stolen=10000,
+                                             batch_size_fit=args.batch_size)
+            cifar_model = distiller.models.create_model(args.pretrained, args.dataset, args.arch,
+                                                        parallel=not args.load_serialized, device_ids=args.gpus)
+            thief_optimizer = torch.optim.SGD(cifar_model.parameters(), lr=0.01)
+            thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model, optimizer=thief_optimizer,
+                                                                 clip_values=(min_pixel_value, max_pixel_value),
+                                                                 loss=ADVcriterion, input_shape=advinput,
+                                                                 nb_classes=classnum)
+            black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier)
             msglogger.info('success generate Extraction Attack')
             y_test_predicted_extracted = black_box_model.predict(x_test)
             y_test_predicted_target = ADVclassifier.predict(x_test)
-            format_string =  np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / y_test.shape[0]
+            format_string = np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / \
+                            y_test.shape[0]
 
-            msglogger.info( "Victime model - Test accuracy:")
+            msglogger.info("Victime model - Test accuracy:")
             msglogger.info(str(format_string))
-            format_string =      np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / y_test.shape[0]
+            format_string = np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / \
+                            y_test.shape[0]
             msglogger.info(
                 "Extracted model - Test accuracy:")
             msglogger.info(str(format_string))
-            format_string =         np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1))/ y_test_predicted_target.shape[0]
+            format_string = np.sum(
+                np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1)) / \
+                            y_test_predicted_target.shape[0]
             msglogger.info(
-                "Extracted model - Test Fidelity:" )
+                "Extracted model - Test Fidelity:")
             msglogger.info(str(format_string))
-
-
 
         msglogger.info(args.resumed_checkpoint_path)
 
