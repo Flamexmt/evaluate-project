@@ -177,7 +177,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 calibrate_data = load_train_data(args)
             calibrate_model(model_fp32_prepared, calibrate_data)
             model_int8 = torch.quantization.convert(model_fp32_prepared)
-            print(model_int8)
+            # print(model_int8)
             # save point
             from distiller.apputils.checkpoint import save_checkpoint
             save_checkpoint(epoch=0, model=model_int8, arch=args.arch, name='quantized_' + args.arch,
@@ -187,7 +187,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             msglogger.info(print_size_of_model(model))
             msglogger.info('model is quantized')
             msglogger.info(print_size_of_model(model_int8))
-            print(2)
             # print('float')
             # classifier.evaluate_model(test_loader, model_fp32_prepared, criterion, pylogger,
             #                           classifier.create_activation_stats_collectors(model_fp32_prepared,
@@ -199,6 +198,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                                                                     *args.activation_stats),
                                       args, scheduler=compression_scheduler)
             msglogger.info(args.resumed_checkpoint_path)
+            return
         elif args.quantized == '16':
             if isinstance(model, torch.nn.DataParallel):
                 model = model.module
@@ -211,10 +211,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             from distiller.apputils.checkpoint import save_checkpoint
             save_checkpoint(epoch=0, model=model, arch=args.arch, name='half_' + args.arch,
                             dir='../../outputsdata/eval/quantized_models/', extras={'half_': True})
-            if 'imagenet' in args.data:
-                calibrate_data = test_loader
-            else:
-                calibrate_data = load_train_data(args)
+            calibrate_data = test_loader
+
             # save point
             model.eval()
 
@@ -229,6 +227,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 correct += (predicted == label).sum()
             msglogger.info('accuracy {}'.format(int(correct) / int(10000)))
             msglogger.info(args.resumed_checkpoint_path)
+            return
         else:
             if args.adv != '1':
                 import copy
@@ -244,7 +243,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             import art.config
             import torch.optim as optim
             from art.classifiers import PyTorchClassifier
-
             # prepare tester
             ADVcriterion = nn.CrossEntropyLoss()
             # load data
@@ -252,7 +250,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             classnum = 10
             if 'cifar' in args.data:
                 art.config.ART_DATA_PATH = args.data
-                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10(datapath=args.data)
+                (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10()
                 x_test = (x_test - 0.5) / 0.5
             elif 'mnist' in args.data:
                 art.config.ART_DATA_PATH = args.data
@@ -262,13 +260,15 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             elif 'imagenet' in args.data:
                 import copy
                 classnum = 1000
+                advinput = (3, 224, 224)
+                print('tensor to numpy process')
                 for validation_step, (inputs, target) in enumerate(test_loader):
                     if validation_step == 0:
-                        x_test = copy.deepcopy(inputs).numpy()
-                        y_test = copy.deepcopy(target).numpy()
+                        x_test = (inputs).numpy()
+                        y_test = (target).numpy()
                     else:
-                        x_temp = copy.deepcopy(inputs).numpy()
-                        y_temp = copy.deepcopy(target).numpy()
+                        x_temp = (inputs).numpy()
+                        y_temp = (target).numpy()
                         x_test = np.append(x_test, x_temp, axis=0)
                         y_test = np.append(y_test, y_temp, axis=0)
                         min_pixel_value = 0
@@ -276,91 +276,156 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             if 'imagenet' not in args.data:
                 x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
                 x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
-            model = model.to('cpu')
-            ADVclassifier = PyTorchClassifier(model=model, clip_values=(min_pixel_value, max_pixel_value),
-                                              loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
 
-            x_test = x_test[:100]
-            y_test = y_test[:100]
+            # model = model.to('cpu')
+            if 'half' in args.resumed_checkpoint_path:
+                ADVclassifier = PyTorchClassifier(quantized=16,model=model.half(), clip_values=(min_pixel_value, max_pixel_value),
+                                              loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+                msglogger.info('half model!')
+            elif 'quantized' in args.resumed_checkpoint_path:
+                ADVclassifier = PyTorchClassifier(quantized=8,model=model, clip_values=(min_pixel_value, max_pixel_value),
+                                                  loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+                msglogger.info('quantized model!')
+            else:
+                ADVclassifier = PyTorchClassifier(quantized=32,model=model, clip_values=(min_pixel_value, max_pixel_value),
+                                                  loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+                msglogger.info('normal model!')
+            x_test = x_test[:]
+            y_test = y_test[:]
             msglogger.info('do normal test')
-            normal_predictions = ADVclassifier.predict(x_test)
-            accuracy = np.sum(np.argmax(normal_predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            normal_predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size)
+            if 'imagenet' in args.data:
+                normal_predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(normal_predictions))
+                normal_predictions = np.argmax(normal_predictions, axis=1)
+                normal_predictions = normal_predictions.numpy()
+                t = (np.where((normal_predictions ) == (y_test)))[0]
+                accuracy = len(t)/ len(y_test)
+            else:
+                accuracy = np.sum(np.argmax(normal_predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             msglogger.info("Accuracy on normal test: {}%".format(accuracy * 100))
 
             if args.white_attack == '1':
                 msglogger.info('--------------------')
                 msglogger.info('do CarliniL2Method Attack test!')
                 from art.attacks.evasion import CarliniL2Method
-                cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.batch_size)
+                cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.adv_batch_size)
                 x_test_adv = cw_attack.generate(x=x_test[:])
                 msglogger.info('success generate CarliniL2Method Attack')
-                predictions = ADVclassifier.predict(x_test_adv)
+                predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
                 accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
                 msglogger.info("Accuracy under CarliniL2Method Attack: {}%".format(accuracy * 100))
                 success_rate = np.sum(np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(y_test)
                 msglogger.info("Attack sucess of CarliniL2Method Attack: {}%".format(success_rate * 100))
+                msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
 
+                # msglogger.info('--------------------')
+                # msglogger.info('do PGD test!')
+                # from art.attacks.evasion import ProjectedGradientDescent
+                # pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size)
+                # x_test_adv = pgd_attack.generate(x=x_test)
+                # msglogger.info('success generate ProjectedGradientDescent Attack')
+                # predictions = ADVclassifier.predict(x_test_adv,batch_size=args.adv_batch_size)
+                # if 'imagenet' in args.data:
+                #     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
+                #     predictions = np.argmax(predictions, axis=1)
+                #     predictions = predictions.numpy()
+                #     accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
+                #     success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
+                # else:
+                #     accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+                #     success_rate = np.sum(
+                #         np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
+                #         y_test)
+                # msglogger.info("Accuracy under ProjectedGradientDescent Attack: {}%".format(accuracy * 100))
+                #
+                # msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
+                # msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
+                pass
 
+            # msglogger.info('--------------------')
+            # msglogger.info('do SquareAttack test!')
+            # from art.attacks.evasion.square_attack import SquareAttack
+            # square_attack = SquareAttack(estimator=ADVclassifier, batch_size=args.adv_batch_size)
+            # x_test_adv = square_attack.generate(x=x_test)
+            # msglogger.info('success generate SquareAttack')
+            # predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
+            # if 'imagenet' in args.data:
+            #     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
+            #     predictions = np.argmax(predictions, axis=1)
+            #     predictions = predictions.numpy()
+            #     accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
+            #     success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
+            # else:
+            #     accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            #     success_rate = np.sum(
+            #         np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
+            #         y_test)
+            # msglogger.info("Accuracy under SquareAttack: {}%".format(accuracy * 100))
+            #
+            # msglogger.info("Attack sucess of SquareAttack Attack: {}%".format(success_rate * 100))
+            # msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
+
+            if args.extraction == '1':
                 msglogger.info('--------------------')
-                msglogger.info('do cw test!')
-                from art.attacks.evasion import ProjectedGradientDescent
-                cw_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.batch_size)
-                x_test_adv = cw_attack.generate(x=x_test[:])
-                msglogger.info('success generate ProjectedGradientDescent Attack')
-                predictions = ADVclassifier.predict(x_test_adv)
-                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-                msglogger.info("Accuracy under ProjectedGradientDescent Attack: {}%".format(accuracy * 100))
-                success_rate = np.sum(np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
-                    y_test)
-                msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
+                msglogger.info('do Extraction Attack test!')
+                from art.attacks.extraction.knockoff_nets import KnockoffNets
+                epochs = args.extraction_epoch
+                msglogger.info('epoch is')
+                msglogger.info(str(epochs))
+                extraction_attack = KnockoffNets(classifier=ADVclassifier, nb_epochs=epochs, nb_stolen=10000,
+                                                 batch_size_fit=args.batch_size)
+                cifar_model = distiller.models.create_model(args.pretrained, args.dataset, args.arch,
+                                                            parallel=not args.load_serialized, device_ids=args.gpus)
+                thief_optimizer = torch.optim.SGD(cifar_model.parameters(), lr=0.01)
+                if 'half' in args.resumed_checkpoint_path:
+                    thief_classifier = art.classifiers.PyTorchClassifier(quantized=16, model=cifar_model.half(),
+                                                                         optimizer=thief_optimizer,
+                                                                         clip_values=(min_pixel_value, max_pixel_value),
+                                                                         loss=ADVcriterion, input_shape=advinput,
+                                                                         nb_classes=classnum)
+                    msglogger.info('half model!')
+                elif 'quantized' in args.resumed_checkpoint_path:
+                    thief_classifier = art.classifiers.PyTorchClassifier(quantized=16, model=cifar_model,
+                                                                         optimizer=thief_optimizer,
+                                                                         clip_values=(min_pixel_value, max_pixel_value),
+                                                                         loss=ADVcriterion, input_shape=advinput,
+                                                                         nb_classes=classnum)
+                    msglogger.info('quantized model!')
+                else:
+                    thief_classifier = art.classifiers.PyTorchClassifier(quantized=16, model=cifar_model,
+                                                                         optimizer=thief_optimizer,
+                                                                         clip_values=(min_pixel_value, max_pixel_value),
+                                                                         loss=ADVcriterion, input_shape=advinput,
+                                                                         nb_classes=classnum)
+                    msglogger.info('normal model!')
 
-            msglogger.info('--------------------')
-            msglogger.info('do SquareAttack test!')
-            from art.attacks.evasion.square_attack import SquareAttack
-            square_attack = SquareAttack(estimator=ADVclassifier, batch_size=args.batch_size)
-            x_test_adv = square_attack.generate(x=x_test[:])
-            msglogger.info('success generate SquareAttack')
-            predictions = ADVclassifier.predict(x_test_adv)
-            accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-            msglogger.info("Accuracy under SquareAttack: {}%".format(accuracy * 100))
-            success_rate = np.sum(np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
-                y_test)
-            msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
+                black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier)
+                msglogger.info('success generate Extraction Attack')
+                y_test_predicted_extracted = black_box_model.predict(x_test)
+                y_test_predicted_target = ADVclassifier.predict(x_test)
+                format_string = np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / \
+                                y_test.shape[0]
 
-            msglogger.info('--------------------')
-            msglogger.info('do Extraction Attack test!')
-            from art.attacks.extraction.knockoff_nets import KnockoffNets
-            extraction_attack = KnockoffNets(classifier=ADVclassifier, nb_epochs=10, nb_stolen=10000,
-                                             batch_size_fit=args.batch_size)
-            cifar_model = distiller.models.create_model(args.pretrained, args.dataset, args.arch,
-                                                        parallel=not args.load_serialized, device_ids=args.gpus)
-            thief_optimizer = torch.optim.SGD(cifar_model.parameters(), lr=0.01)
-            thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model, optimizer=thief_optimizer,
-                                                                 clip_values=(min_pixel_value, max_pixel_value),
-                                                                 loss=ADVcriterion, input_shape=advinput,
-                                                                 nb_classes=classnum)
-            black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier)
-            msglogger.info('success generate Extraction Attack')
-            y_test_predicted_extracted = black_box_model.predict(x_test)
-            y_test_predicted_target = ADVclassifier.predict(x_test)
-            format_string = np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / \
-                            y_test.shape[0]
-
-            msglogger.info("Victime model - Test accuracy:")
-            msglogger.info(str(format_string))
-            format_string = np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / \
-                            y_test.shape[0]
-            msglogger.info(
-                "Extracted model - Test accuracy:")
-            msglogger.info(str(format_string))
-            format_string = np.sum(
-                np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1)) / \
-                            y_test_predicted_target.shape[0]
-            msglogger.info(
-                "Extracted model - Test Fidelity:")
-            msglogger.info(str(format_string))
-
-        msglogger.info(args.resumed_checkpoint_path)
+                msglogger.info("Victime model - Test accuracy:")
+                msglogger.info(str(format_string))
+                format_string = np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / \
+                                y_test.shape[0]
+                msglogger.info(
+                    "Extracted model - Test accuracy:")
+                msglogger.info(str(format_string))
+                accuracy = np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / \
+                           y_test.shape[0]
+                format_string = np.sum(
+                    np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1)) / \
+                                y_test_predicted_target.shape[0]
+                msglogger.info(
+                    "Extracted model - Test Fidelity:")
+                msglogger.info(str(format_string))
+                success_rate = np.sum(
+                    np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1)) / \
+                               y_test_predicted_target.shape[0]
+            msglogger.info(args.resumed_checkpoint_path)
+            msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
 
         do_exit = True
     elif args.thinnify:

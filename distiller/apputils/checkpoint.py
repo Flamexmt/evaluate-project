@@ -208,8 +208,11 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
         msglogger.info("=> Checkpoint['extras'] contents:\n{}\n".format(get_contents_table(checkpoint['extras'])))
     if 'model' in checkpoint:
         checkpoint['state_dict'] = checkpoint['model']
+
     if 'state_dict' not in checkpoint:
-        raise ValueError("Checkpoint must contain the model parameters under the key 'state_dict'")
+        checkpoint['state_dict'] = checkpoint
+        if 'state_dict' not in checkpoint:
+            raise ValueError("Checkpoint must contain the model parameters under the key 'state_dict'")
 
     if not model:
         model = _create_model_from_ckpt()
@@ -247,14 +250,21 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
         checkpoint['state_dict'] = {normalize_module_name(k): v for k, v in checkpoint['state_dict'].items()}
     try:
         if checkpoint['extras']['quantized']:
-            fused_model = model.quantize_self()
-            fused_model.eval()
-            fused_model.fuse_self()
+            if 'cifar' in chkpt_file:
+                fused_model = model.quantize_self()
+                fused_model.eval()
+                fused_model.fuse_self()
+            else:
+                quantization_config = torch.quantization.get_default_qconfig("fbgemm")
+                model.eval()
+                fused_model = model.fuse_model()
+                fused_model.qconfig = quantization_config
             model_fp32_prepared = torch.quantization.prepare(fused_model, inplace=False)
             model_fp32_prepared.eval()
             model = torch.quantization.convert(model_fp32_prepared)
         if checkpoint['extras']['half']:
-            model.half()
+            print('load a half model')
+            model = model.half()
     except:
         msglogger.warning('miss extra info!')
     anomalous_keys = model.load_state_dict(checkpoint['state_dict'], strict)

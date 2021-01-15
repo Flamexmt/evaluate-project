@@ -22,3 +22,5 @@ from .preresnet_imagenet import *
 from .alexnet_batchnorm import *
 from .resnet_earlyexit import *
 from .resnet import *
+from .mobilenet_v2 import *
+import  torchvision

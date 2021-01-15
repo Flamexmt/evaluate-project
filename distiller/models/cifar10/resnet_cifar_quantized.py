@@ -11,6 +11,7 @@ class ResNetCifar_quantized(nn.Module):
         quantization_config = torch.quantization.get_default_qconfig("fbgemm")
         self.qconfig = quantization_config
     def forward(self, x):
+        x = x.to('cpu')
         x = self.quant(x)
         x = self.model(x)
         x = self.dequant(x)
