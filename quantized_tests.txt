@@ -1,0 +1,37 @@
+还未做的attack 有:CarliniL2Method , extraction
+CarliniL2Method不在quantized模型上做
+
+resnet50 test(float,half,quantized):
+-a=resnet50 --data /home/exp/Downloads/xiamutian/imagenet --workers 3 --batch-size 512 --cpu --resume-from ../../outputsdata/eval/quantized_models/quantized_resnet50_checkpoint.pth.tar --out-dir ../../outputsdata/new_eval_result --evaluate --adv 1 --white-attack 1 --adv-batch-size 100 --extraction 1
+
+mobilenet_v2 test(float,half,quantized):
+-a=my_mobilenet_v2 --data /home/exp/Downloads/xiamutian/imagenet --workers 3 --batch-size 512 --cpu --resume-from ../../outputsdata/eval/quantized_models/quantized_resnet50_checkpoint.pth.tar --out-dir ../../outputsdata/new_eval_result --evaluate --adv 1 --white-attack 1 --adv-batch-size 100 --extraction 1
+
+
+--data dataset path
+--batch-size 读取数据的batch-size
+--adv-batch-size 进行攻击的batch-size,应该比最大的读取数据的size小
+--white-attack float,half模型设为1,int模型设为0。1表示进行白盒攻击(即CarliniL2Method),0则不进行
+--resume-from 模型存放的位置，模型文件的名字不能改，读取的时候根据名字写死了读取方式
+--out-dir 结果输出的位置
+--cpu quantized模型设为--cpu,float和half模型设为--gpus 0
+--workers 一起运行的核心数
+其它的参数不用改动
+
+在运行half和quantized模型时，art工具会报错，问题就是输入的类型和模型的类型不匹配，需要手动调整一下
+
+应该会报错在
+File "/home/exp/env/xmt/lib/python3.5/site-packages/art/estimators/classification/pytorch.py", line 801, in forward
+    x =  self._model(x)
+
+运行half模型时：
+model必须在cuda上，input需half化,即
+self._model = self._model.cuda()
+x = x.half()
+
+运行quantized模型时：
+input和model都必须在cpu上
+self._model = self._model.cpu()
+x = x.cpu()
+
+在compress_classifier.py 294行，可以调整输入量，可以用小输入量先看看能不能行...
