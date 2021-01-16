@@ -35,4 +35,6 @@ input和model都必须在cpu上
 self._model = self._model.cpu()
 x = x.cpu()
 
+
+
 在compress_classifier.py 294行，可以调整输入量，可以用小输入量先看看能不能行...
