@@ -23,6 +23,7 @@ mobilenet_v2 test(float,half,quantized):
 应该会报错在
 File "/home/exp/env/xmt/lib/python3.5/site-packages/art/estimators/classification/pytorch.py", line 801, in forward
     x =  self._model(x)
+运行extraction attack时也会有相同的报错，也在这个文件中，不过位置不一样，也是Model和input的类型需要匹配
 
 运行half模型时：
 model必须在cuda上，input需half化,即
