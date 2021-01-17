@@ -32,7 +32,7 @@ Note that this scale factor is, in most cases, a floating-point number. Hence, e
 Convolution and fully connected layers involve the storing of intermediate results in accumulators. Due to the limited dynamic range of integer formats, if we would use the same bit-width for the weights and activation, *and* for the accumulators, we would likely overflow very quickly. Therefore, accumulators are usually implemented with higher bit-widths.  
 The result of multiplying two \(n\)-bit integers is, at most, a \(2n\)-bit number. In convolution layers, such multiplications are accumulated \(c\cdot k^2\) times, where \(c\) is the number of input channels and \(k\) is the kernel width (assuming a square kernel). Hence, to avoid overflowing, the accumulator should be \(2n + M\)-bits wide, where M is at least \(log_2(c\cdot k^2)\). In many cases 32-bit accumulators are used, however for INT4 and lower it might be possible to use less than 32 -bits, depending on the expected use cases and layer widths.
 
-## "Conservative" Quantization: INT8
+## "Conservative" Quantization       8
 
 In many cases, taking a model trained for FP32 and directly quantizing it to INT8, without any re-training, can result in a relatively low loss of accuracy (which may or may not be acceptable, depending on the use case). Some fine-tuning can further improve the accuracy ([Gysel at al., 2018](#gysel-et-al-2018)).  
 As mentioned above, a scale factor is used to adapt the dynamic range of the tensor at hand to that of the integer format. This scale factor needs to be calculated per-layer per-tensor. The simplest way is to map the min/max values of the float tensor to the min/max of the integer format. For weights and biases this is easy, as they are set once training is complete. For activations, the min/max float values can be obtained "online" during inference, or "offline".
@@ -47,7 +47,7 @@ Another possible optimization point is **scale-factor scope**. The most common w
 
 When used to directly quantize a model without re-training, as described so far, this method is commonly referred to as **post-training quantization**. However, recent publications have shown that there are cases where post-training quantization to INT8 doesn't preserve accuracy ([Benoit et al., 2018](#benoit-et-al-2018), [Krishnamoorthi, 2018](#krishnamoorthi-2018)). Namely, smaller models such as MobileNet seem to not respond as well to post-training quantization, presumabley due to their smaller representational capacity. In such cases, [quantization-aware training](#quantization-aware-training) is used.
 
-## "Aggressive" Quantization: INT4 and Lower
+## "Aggressive" Quantization       4 and Lower
 
 Naively quantizing a FP32 model to INT4 and lower usually incurs significant accuracy degradation. Many works have tried to mitigate this effect. They usually employ one or more of the following concepts in order to improve model accuracy:
 

@@ -228,7 +228,7 @@ def main(args):
         if args.output_dir:
             save_dict = {
                 'model': model_without_ddp.state_dict(),
-                'optimizer': optimizer.state_dict(),
+                'optimizer'      .state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'args': args}
             if compression_scheduler:

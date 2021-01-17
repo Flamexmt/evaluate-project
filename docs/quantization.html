@@ -99,9 +99,9 @@
         
             <li><a class="toctree-l4" href="#integer-vs-fp32">Integer vs. FP32</a></li>
         
-            <li><a class="toctree-l4" href="#conservative-quantization-int8">"Conservative" Quantization: INT8</a></li>
+            <li><a class="toctree-l4" href="#conservative-quantization-int8">"Conservative" Quantization       8</a></li>
         
-            <li><a class="toctree-l4" href="#aggressive-quantization-int4-and-lower">"Aggressive" Quantization: INT4 and Lower</a></li>
+            <li><a class="toctree-l4" href="#aggressive-quantization-int4-and-lower">"Aggressive" Quantization       4 and Lower</a></li>
         
             <li><a class="toctree-l4" href="#quantization-aware-training">Quantization-Aware Training</a></li>
         
@@ -255,7 +255,7 @@ Note that this scale factor is, in most cases, a floating-point number. Hence, e
 <h3 id="avoiding-overflows">Avoiding Overflows</h3>
 <p>Convolution and fully connected layers involve the storing of intermediate results in accumulators. Due to the limited dynamic range of integer formats, if we would use the same bit-width for the weights and activation, <em>and</em> for the accumulators, we would likely overflow very quickly. Therefore, accumulators are usually implemented with higher bit-widths.<br />
 The result of multiplying two <script type="math/tex">n</script>-bit integers is, at most, a <script type="math/tex">2n</script>-bit number. In convolution layers, such multiplications are accumulated <script type="math/tex">c\cdot k^2</script> times, where <script type="math/tex">c</script> is the number of input channels and <script type="math/tex">k</script> is the kernel width (assuming a square kernel). Hence, to avoid overflowing, the accumulator should be <script type="math/tex">2n + M</script>-bits wide, where M is at least <script type="math/tex">log_2(c\cdot k^2)</script>. In many cases 32-bit accumulators are used, however for INT4 and lower it might be possible to use less than 32 -bits, depending on the expected use cases and layer widths.</p>
-<h2 id="conservative-quantization-int8">"Conservative" Quantization: INT8</h2>
+<h2 id="conservative-quantization-int8">"Conservative" Quantization       8</h2>
 <p>In many cases, taking a model trained for FP32 and directly quantizing it to INT8, without any re-training, can result in a relatively low loss of accuracy (which may or may not be acceptable, depending on the use case). Some fine-tuning can further improve the accuracy (<a href="#gysel-et-al-2018">Gysel at al., 2018</a>).<br />
 As mentioned above, a scale factor is used to adapt the dynamic range of the tensor at hand to that of the integer format. This scale factor needs to be calculated per-layer per-tensor. The simplest way is to map the min/max values of the float tensor to the min/max of the integer format. For weights and biases this is easy, as they are set once training is complete. For activations, the min/max float values can be obtained "online" during inference, or "offline".</p>
 <ul>
@@ -267,7 +267,7 @@ As mentioned above, a scale factor is used to adapt the dynamic range of the ten
 <p>It is important to note, however, that the full float range of an activations tensor usually includes elements which are statistically outliers. These values can be discarded by using a narrower min/max range, effectively allowing some clipping to occur in favor of increasing the resolution provided to the part of the distribution containing most of the information. A simple method which can yield nice results is to simply use an average of the observed min/max values instead of the actual values. Alternatively, statistical measures can be used to intelligently select where to clip the original range in order to preserve as much information as possible (<a href="#migacz-2017">Migacz, 2017</a>). Going further, <a href="#banner-et-al-2018">Banner et al., 2018</a> have proposed a method for analytically computing the clipping value under certain conditions.</p>
 <p>Another possible optimization point is <strong>scale-factor scope</strong>. The most common way is use a single scale-factor per-layer, but it is also possible to calculate a scale-factor per-channel. This can be beneficial if the weight distributions vary greatly between channels.</p>
 <p>When used to directly quantize a model without re-training, as described so far, this method is commonly referred to as <strong>post-training quantization</strong>. However, recent publications have shown that there are cases where post-training quantization to INT8 doesn't preserve accuracy (<a href="#benoit-et-al-2018">Benoit et al., 2018</a>, <a href="#krishnamoorthi-2018">Krishnamoorthi, 2018</a>). Namely, smaller models such as MobileNet seem to not respond as well to post-training quantization, presumabley due to their smaller representational capacity. In such cases, <a href="#quantization-aware-training">quantization-aware training</a> is used.</p>
-<h2 id="aggressive-quantization-int4-and-lower">"Aggressive" Quantization: INT4 and Lower</h2>
+<h2 id="aggressive-quantization-int4-and-lower">"Aggressive" Quantization       4 and Lower</h2>
 <p>Naively quantizing a FP32 model to INT4 and lower usually incurs significant accuracy degradation. Many works have tried to mitigate this effect. They usually employ one or more of the following concepts in order to improve model accuracy:</p>
 <ul>
 <li><strong>Training / Re-Training</strong>: For INT4 and lower, training is required in order to obtain reasonable accuracy. The training loop is modified to take quantization into account. See details in the <a href="#quantization-aware-training">next section</a>.<br />

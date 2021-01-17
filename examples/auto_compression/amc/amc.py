@@ -95,7 +95,7 @@ def train_auto_compressor(model, args, optimizer_data, validate_fn, save_checkpo
     app_args = distiller.utils.MutableNamedTuple({
             'dataset': dataset,
             'arch': arch,
-            'optimizer_data': optimizer_data,
+            'optimizer_data'      _data,
             'seed': args.seed})
 
     ddpg_cfg = distiller.utils.MutableNamedTuple({
