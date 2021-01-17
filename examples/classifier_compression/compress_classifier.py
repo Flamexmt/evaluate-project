@@ -318,29 +318,29 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info("Attack sucess of CarliniL2Method Attack: {}%".format(success_rate * 100))
                 msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
 
-                msglogger.info('--------------------')
-                msglogger.info('do PGD test!')
-                from art.attacks.evasion import ProjectedGradientDescent
-                pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size)
-                x_test_adv = pgd_attack.generate(x=x_test)
-                msglogger.info('success generate ProjectedGradientDescent Attack')
-                predictions = ADVclassifier.predict(x_test_adv,batch_size=args.adv_batch_size)
-                if 'imagenet' in args.data:
-                    predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
-                    predictions = np.argmax(predictions, axis=1)
-                    predictions = predictions.numpy()
-                    accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
-                    success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
-                else:
-                    accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-                    success_rate = np.sum(
-                        np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
-                        y_test)
-                msglogger.info("Accuracy under ProjectedGradientDescent Attack: {}%".format(accuracy * 100))
-
-                msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
-                msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
-                pass
+                # msglogger.info('--------------------')
+                # msglogger.info('do PGD test!')
+                # from art.attacks.evasion import ProjectedGradientDescent
+                # pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size)
+                # x_test_adv = pgd_attack.generate(x=x_test)
+                # msglogger.info('success generate ProjectedGradientDescent Attack')
+                # predictions = ADVclassifier.predict(x_test_adv,batch_size=args.adv_batch_size)
+                # if 'imagenet' in args.data:
+                #     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
+                #     predictions = np.argmax(predictions, axis=1)
+                #     predictions = predictions.numpy()
+                #     accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
+                #     success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
+                # else:
+                #     accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+                #     success_rate = np.sum(
+                #         np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
+                #         y_test)
+                # msglogger.info("Accuracy under ProjectedGradientDescent Attack: {}%".format(accuracy * 100))
+                #
+                # msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
+                # msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
+                # pass
 
             # msglogger.info('--------------------')
             # msglogger.info('do SquareAttack test!')
