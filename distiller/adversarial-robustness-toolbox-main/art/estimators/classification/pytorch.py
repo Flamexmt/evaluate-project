@@ -302,6 +302,8 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
 
+
+
                 # Perform prediction
                 model_outputs = self._model(i_batch)
 
