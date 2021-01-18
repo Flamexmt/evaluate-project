@@ -299,7 +299,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                 i_batch = torch.from_numpy(x_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device)
                 o_batch = torch.from_numpy(y_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device)
                 i_batch = i_batch.half()
-                o_batch = o_batch.half()
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
 
