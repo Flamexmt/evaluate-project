@@ -237,7 +237,8 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
             msglogger.warning("Found thinning_recipes key, but missing key compression_scheduler")
             compression_scheduler = distiller.CompressionScheduler(model)
         _load_and_execute_thinning_recipes()
-    optimizer = _load_optimizer()
+    # optimizer = _load_optimizer()
+    optimizer = None
     # if pruning is after quantizer,then do not skip this!
     if 'quantizer_metadata' in checkpoint and still_quantization:
         msglogger.info('Loaded quantizer metadata from the checkpoint')

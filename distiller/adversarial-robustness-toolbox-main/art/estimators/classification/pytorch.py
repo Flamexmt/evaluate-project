@@ -298,7 +298,10 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                 #changepoint
                 i_batch = torch.from_numpy(x_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device)
                 o_batch = torch.from_numpy(y_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device)
-                i_batch = i_batch.half()
+                # i_batch = i_batch.half()
+                i_batch = i_batch.cpu()
+                o_batch = o_batch.cpu()
+                self._model=self._model.cpu()
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
 
@@ -780,7 +783,9 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
                         elif isinstance(self._model, nn.Module):
                             # changepoint
-                            x = x.half()
+                            # x = x.half()
+                            x = x.cpu()
+                            self._model = self._model.cpu()
                             x = self._model(x)
                             result.append(x)
 

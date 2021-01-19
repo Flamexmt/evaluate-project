@@ -142,16 +142,17 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
         test_loader = load_test_data(args)
 
         import torch.quantization as tq
-        from distiller.models.cifar10.resnet_cifar_quantized import ResNetCifar_quantized
+        from torch import nn
+        # Map for swapping float module to quantized ones
+
         if args.quantized == '8':
             model = model.to(torch.device('cpu'))
             if isinstance(model, torch.nn.DataParallel):
                 model = model.module
-            # model.fuse_model()
             import copy
+            model.eval()
             if 'imagenet' in args.data:
                 quantization_config = torch.quantization.get_default_qconfig("fbgemm")
-                model.eval()
                 fused_model = model.fuse_model()
                 fused_model.qconfig = quantization_config
             else:
@@ -163,22 +164,17 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             model_fp32_prepared.eval()
 
             def calibrate_model(model, loader):
-                print('start test!!')
+                print('start calibrate!!')
                 model.eval()
                 i = 0
                 for inputs, labels in loader:
                     _ = model(inputs)
                     print(i, '/', len(loader))
                     i += 1
-
-            if 'imagenet' in args.data:
-                calibrate_data = test_loader
-            else:
-                calibrate_data = load_train_data(args)
+                    break
+            calibrate_data = test_loader
             calibrate_model(model_fp32_prepared, calibrate_data)
             model_int8 = torch.quantization.convert(model_fp32_prepared)
-            # print(model_int8)
-            # save point
             from distiller.apputils.checkpoint import save_checkpoint
             save_checkpoint(epoch=0, model=model_int8, arch=args.arch, name='quantized_' + args.arch,
                             dir='../../outputsdata/eval/quantized_models/', extras={'quantized': True})
@@ -187,18 +183,18 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             msglogger.info(print_size_of_model(model))
             msglogger.info('model is quantized')
             msglogger.info(print_size_of_model(model_int8))
-            # print('float')
-            # classifier.evaluate_model(test_loader, model_fp32_prepared, criterion, pylogger,
-            #                           classifier.create_activation_stats_collectors(model_fp32_prepared,
-            #                                                                         *args.activation_stats),
-            #                           args, scheduler=compression_scheduler)
+            print('float')
+            classifier.evaluate_model(test_loader, model, criterion, pylogger,
+                                      classifier.create_activation_stats_collectors(model,
+                                                                                    *args.activation_stats),
+                                      args, scheduler=compression_scheduler)
+            msglogger.info(args.resumed_checkpoint_path)
             print('int')
             classifier.evaluate_model(test_loader, model_int8, criterion, pylogger,
                                       classifier.create_activation_stats_collectors(model_int8,
                                                                                     *args.activation_stats),
                                       args, scheduler=compression_scheduler)
             msglogger.info(args.resumed_checkpoint_path)
-            return
         elif args.quantized == '16':
             if isinstance(model, torch.nn.DataParallel):
                 model = model.module
@@ -227,7 +223,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 correct += (predicted == label).sum()
             msglogger.info('accuracy {}'.format(int(correct) / int(10000)))
             msglogger.info(args.resumed_checkpoint_path)
-            return
         else:
             if args.adv != '1':
                 import copy
