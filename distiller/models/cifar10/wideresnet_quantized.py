@@ -28,5 +28,3 @@ class WideResNet_quantized(nn.Module):
                 torch.quantization.fuse_modules(m, [['conv2', 'bn2'], ['conv1', 'bn1']], inplace=True)
             if type(m) == DistillerBottleneck:
                 torch.quantization.fuse_modules(m, [['conv2', 'bn2'], ['conv1', 'bn1'], ['conv3', 'bn3']], inplace=True)
-
-

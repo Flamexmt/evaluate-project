@@ -27,15 +27,14 @@ from torch.utils.data.sampler import Sampler
 import numpy as np
 import distiller
 
-
 DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist']
 
 
 def classification_dataset_str_from_arch(arch):
     if 'cifar' in arch:
-        dataset = 'cifar10' 
+        dataset = 'cifar10'
     elif 'mnist' in arch:
-        dataset = 'mnist' 
+        dataset = 'mnist'
     else:
         dataset = 'imagenet'
     return dataset
@@ -87,11 +86,11 @@ def load_data(dataset, data_dir, batch_size, workers, validation_split=0.1, dete
     if dataset not in DATASETS_NAMES:
         raise ValueError('load_data does not support dataset %s" % dataset')
     datasets_fn = __dataset_factory(dataset)
-    return get_data_loaders(datasets_fn, data_dir, batch_size, workers, 
+    return get_data_loaders(datasets_fn, data_dir, batch_size, workers,
                             validation_split=validation_split,
-                            deterministic=deterministic, 
+                            deterministic=deterministic,
                             effective_train_size=effective_train_size,
-                            effective_valid_size=effective_valid_size, 
+                            effective_valid_size=effective_valid_size,
                             effective_test_size=effective_test_size,
                             fixed_subset=fixed_subset,
                             sequential=sequential)
@@ -213,6 +212,7 @@ class SwitchingSubsetRandomSampler(Sampler):
         data_source (Dataset): dataset to sample from
         subset_size (float): value in (0..1], representing the portion of dataset to sample at each enumeration.
     """
+
     def __init__(self, data_source, effective_size):
         self.data_source = data_source
         self.subset_length = _get_subset_length(data_source, effective_size)
@@ -234,6 +234,7 @@ class SubsetSequentialSampler(torch.utils.data.Sampler):
     Arguments:
         indices (sequence): a sequence of indices
     """
+
     def __init__(self, indices):
         self.indices = indices
 

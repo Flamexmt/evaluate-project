@@ -55,14 +55,14 @@
 lr_schedulers:
   training_lr:
     class: StepLR
-    step_size: 45
-    gamma: 0.10
+    step_size: 200
+    gamma: 0.50
 
 policies:
     - lr_scheduler:
         instance_name: training_lr
       starting_epoch: 45
-      ending_epoch: 200
+      ending_epoch: 1000
       frequency: 1
 
 # This is the faster training, referred to above.

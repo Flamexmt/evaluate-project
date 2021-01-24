@@ -286,33 +286,38 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
         num_batch = int(np.ceil(len(x_preprocessed) / float(batch_size)))
         ind = np.arange(len(x_preprocessed))
+        total = len(y_preprocessed)
 
         # Start training
         for i_epoch in range(nb_epochs):
-            print(i_epoch,'/',nb_epochs,'epochs')
+            print(i_epoch+1,'/',nb_epochs,'epochs',end='||')
             # Shuffle the examples
             random.shuffle(ind)
 
             # Train for one epoch
+            epoch_loss = None
+            correct = 0
+            import datetime
+            start = datetime.datetime.now()
             for m in range(num_batch):
                 #changepoint
                 i_batch = torch.from_numpy(x_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device)
                 o_batch = torch.from_numpy(y_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device)
+                # changepoint
+
                 # i_batch = i_batch.half()
                 i_batch = i_batch.cpu()
                 o_batch = o_batch.cpu()
                 self._model=self._model.cpu()
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
-
-
-
                 # Perform prediction
                 model_outputs = self._model(i_batch)
-
                 # Form the loss function
                 loss = self._loss(model_outputs[-1], o_batch)
-
+                predictions = torch.nn.Softmax(dim=1)(model_outputs[0]).cpu().detach().numpy()
+                predictions = np.argmax(predictions, axis=1)
+                correct += len((np.where((predictions) == (o_batch.cpu().detach().numpy())))[0])
                 # Do training
                 if self._use_amp:
                     from apex import amp
@@ -322,10 +327,21 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
                 else:
                     loss.backward()
-
+                epoch_loss = loss
                 self._optimizer.step()
+            end = datetime.datetime.now()
+            cost = end - start
+            highest = 0
+            if (correct/total)>highest:
+                now = str(datetime.datetime.now())
+                torch.save(self._model,'/home/exp/Downloads/xiamutian/evaluate-project/outputsdata/extraction_records/'+now+'extraction_bset'+str(highest)+'.pth')
+            print('extraction rate',(correct/total),end='||')
+            print('loss',(epoch_loss.detach().item()),end = '||')
+            print('time cost',(cost))
 
-    def fit_generator(self, generator: "DataGenerator", nb_epochs        = 20, **kwargs) -> None:
+            if correct/total>=1:
+                break
+    def fit_generator(self, generator: "DataGenerator", nb_epochs= 20, **kwargs) -> None:
         """
         Fit the classifier using the generator that yields batches as specified.
 

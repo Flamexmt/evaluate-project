@@ -117,7 +117,7 @@ class ProjectedGradientDescent(EvasionAttack):
         self.verbose = verbose
         ProjectedGradientDescent._check_params(self)
 
-        self._attack
+        self._attack = None
         if isinstance(self.estimator, PyTorchClassifier) and self.estimator.all_framework_preprocessing:
             self._attack = ProjectedGradientDescentPyTorch(
                 estimator=estimator,  # type: ignore

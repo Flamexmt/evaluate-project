@@ -270,9 +270,21 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
         msglogger.warning('miss extra info!')
     anomalous_keys = model.load_state_dict(checkpoint['state_dict'], strict)
     missing_keys, unexpected_keys = anomalous_keys
-
     if missing_keys or unexpected_keys:
         # This is pytorch 1.1+
+        if 'layer1.0.shortcut.weight' in missing_keys:
+            print(111)
+            temp = {}
+            checkpoint['state_dict']['layer1.0.shortcut.weight'] = checkpoint['state_dict']['module.layer1.0.shortcut.0.weight']
+            checkpoint['state_dict']['layer1.0.shortcut.bias'] = checkpoint['state_dict']['module.layer1.0.shortcut.0.bias']
+            checkpoint['state_dict']['layer2.0.shortcut.weight'] = checkpoint['state_dict']['module.layer2.0.shortcut.0.weight']
+            checkpoint['state_dict']['layer2.0.shortcut.bias'] = checkpoint['state_dict']['module.layer2.0.shortcut.0.bias']
+            checkpoint['state_dict']['layer3.0.shortcut.weight'] = checkpoint['state_dict']['module.layer3.0.shortcut.0.weight']
+            checkpoint['state_dict']['layer3.0.shortcut.bias'] = checkpoint['state_dict']['module.layer3.0.shortcut.0.bias']
+            for item in checkpoint['state_dict'].keys():
+                temp[item] = checkpoint['state_dict'][item]
+            anomalous_keys = model.load_state_dict(temp, strict)
+            missing_keys, unexpected_keys = anomalous_keys
         if missing_keys:
             temp = {}
             for item in checkpoint['state_dict'].keys():
@@ -286,6 +298,7 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
                 temp[name] = checkpoint['state_dict'][item]
             anomalous_keys = model.load_state_dict(temp, strict)
             missing_keys, unexpected_keys = anomalous_keys
+
         if unexpected_keys:
             print('unexpected_keys', unexpected_keys)
             msglogger.warning("Warning: the loaded checkpoint (%s) contains %d unexpected state keys" %

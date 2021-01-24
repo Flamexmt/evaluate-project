@@ -315,7 +315,6 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.quant(x)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -329,21 +328,11 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
-        x = self.dequant(x)
         return x
 
-    def fuse_model(self):
-        torch.quantization.fuse_modules(self, ["conv1", "bn1", "relu"],inplace=True)
-        for m in self.modules():
-            if type(m) == BasicBlock:
-                torch.quantization.fuse_modules(m,[['conv2','bn2'], ['conv1', 'bn1']] ,inplace=True)
-            if type(m) == DownSample:
-                torch.quantization.fuse_modules(m, ['0', '1'],inplace=True)
-            if type(m) == DistillerBasicBlock:
-                torch.quantization.fuse_modules(m,[['conv2','bn2'], ['conv1', 'bn1']] ,inplace=True)
-            if type(m) == DistillerBottleneck:
-                torch.quantization.fuse_modules(m, [['conv2', 'bn2'], ['conv1', 'bn1'],['conv3', 'bn3']], inplace=True)
-        return self
+    def quantize_self(self):
+        from  distiller.models.cifar10.wideresnet_quantized import WideResNet_quantized
+        return  WideResNet_quantized(self)
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
@@ -352,13 +341,10 @@ def _resnet(arch, block, layers, pretrained, progress, **kwargs):
 
 def wide_resnet50_2_cifar(pretrained=False, progress=True, **kwargs):
     """Constructs a Wide ResNet-50-2 model.
-
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    kwargs['width_per_group'] = 10
-    return _resnet('wide_resnet50_2', DistillerBottleneck, [3, 4, 6, 3],
+    kwargs['width_per_group'] = 16
+    return _resnet('wide_resnet50_2', DistillerBottleneck, [2, 4, 4, 2],
                    pretrained, progress, **kwargs)
-
-
