@@ -171,6 +171,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     _ = model(inputs)
                     print(i, '/', len(loader))
                     i += 1
+                    break
             calibrate_data = test_loader
             calibrate_model(model_fp32_prepared, calibrate_data)
             model_int8 = torch.quantization.convert(model_fp32_prepared)
@@ -298,11 +299,11 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 accuracy = np.sum(np.argmax(normal_predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             msglogger.info("Accuracy on normal test: {}%".format(accuracy * 100))
 
-            if args.white_attack == '1':
+            if args.cw_attack == '1':
                 msglogger.info('--------------------')
                 msglogger.info('do CarliniL2Method Attack test!')
                 from art.attacks.evasion import CarliniL2Method
-                cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.adv_batch_size)
+                cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.adv_batch_size,binary_search_steps=2)
                 x_test_adv = cw_attack.generate(x=x_test[:])
                 msglogger.info('success generate CarliniL2Method Attack')
                 predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
@@ -312,10 +313,13 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info("Attack sucess of CarliniL2Method Attack: {}%".format(success_rate * 100))
                 msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
 
+
+            if args.pgd_attack == '1':
+
                 msglogger.info('--------------------')
                 msglogger.info('do PGD test!')
                 from art.attacks.evasion import ProjectedGradientDescent
-                pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size)
+                pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size,eps=8,eps_step=2)
                 x_test_adv = pgd_attack.generate(x=x_test)
                 msglogger.info('success generate ProjectedGradientDescent Attack')
                 predictions = ADVclassifier.predict(x_test_adv,batch_size=args.adv_batch_size)
@@ -335,30 +339,31 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
                 msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
                 pass
+            if args.square_attack == '1':
+                msglogger.info('--------------------')
+                msglogger.info('do SquareAttack test!')
+                from art.attacks.evasion.square_attack import SquareAttack
+                square_attack = SquareAttack(estimator=ADVclassifier, batch_size=args.adv_batch_size, p_init=0.3)
+                x_test_adv = square_attack.generate(x=x_test)
+                msglogger.info('success generate SquareAttack')
+                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
+                if 'imagenet' in args.data:
+                    predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
+                    predictions = np.argmax(predictions, axis=1)
+                    predictions = predictions.numpy()
+                    accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
+                    success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
+                else:
+                    accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+                    success_rate = np.sum(
+                        np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
+                        y_test)
+                msglogger.info("Accuracy under SquareAttack: {}%".format(accuracy * 100))
+                msglogger.info("Attack sucess of SquareAttack Attack: {}%".format(success_rate * 100))
+                msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
 
-            msglogger.info('--------------------')
-            msglogger.info('do SquareAttack test!')
-            from art.attacks.evasion.square_attack import SquareAttack
-            square_attack = SquareAttack(estimator=ADVclassifier, batch_size=args.adv_batch_size)
-            x_test_adv = square_attack.generate(x=x_test)
-            msglogger.info('success generate SquareAttack')
-            predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
-            if 'imagenet' in args.data:
-                predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
-                predictions = np.argmax(predictions, axis=1)
-                predictions = predictions.numpy()
-                accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
-                success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
-            else:
-                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-                success_rate = np.sum(
-                    np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
-                    y_test)
-            msglogger.info("Accuracy under SquareAttack: {}%".format(accuracy * 100))
-            msglogger.info("Attack sucess of SquareAttack Attack: {}%".format(success_rate * 100))
-            msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
 
-            if args.extraction == '1':
+            if args.extraction_attack == '1':
                 msglogger.info('--------------------')
                 msglogger.info('do Extraction Attack test!')
                 from art.attacks.extraction.knockoff_nets import KnockoffNets
