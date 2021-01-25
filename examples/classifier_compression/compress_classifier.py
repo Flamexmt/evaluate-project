@@ -138,7 +138,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             size = 'Size (MB):' + str(os.path.getsize("temp.p") / 1e6)
             os.remove('temp.p')
             return size
-
         test_loader = load_test_data(args)
 
         import torch.quantization as tq
@@ -222,6 +221,62 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 correct += (predicted == label).sum()
             msglogger.info('accuracy {}'.format(int(correct) / int(10000)))
             msglogger.info(args.resumed_checkpoint_path)
+        elif args.fairness_test =='1':
+            import  pickle
+            import torchvision.transforms as transforms
+            from  distiller.apputils.data_loaders import GrayCifarDataset
+            if 'cifar' in args.arch:
+                data_setting = {
+                    'test_color_path': '../data.cifar/cifar_color_test_imgs',
+                    'test_gray_path': './data.cifar/cifar_gray_test_imgs',
+                    'test_label_path': './data.cifar/cifar_test_labels',
+                }
+            else:
+                data_setting = {}
+            normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            transform_test = transforms.Compose([
+                transforms.ToTensor(),
+                normalize,
+            ])
+            test_color_data = GrayCifarDataset(data_setting['test_color_path'],
+                                                      data_setting['test_label_path'],
+                                                      transform_test)
+            test_gray_data = GrayCifarDataset(data_setting['test_gray_path'],
+                                                     data_setting['test_label_path'],
+                                                     transform_test)
+
+
+            test_color_loader = torch.utils.data.DataLoader(
+                test_color_data, batch_size=args.batch_size,
+                shuffle=False, num_workers=2)
+            test_gray_loader = torch.utils.data.DataLoader(
+                test_gray_data, batch_size=args.batch_size,
+                shuffle=False, num_workers=2)
+
+
+            print('do normal testing')
+            color_correct = 0
+            color_total = 0
+            for i, (input, label) in enumerate(test_color_loader):
+                outputs = model(input)
+                _, predicted = torch.max(outputs.data, 1)
+                color_correct += (predicted == label).sum()
+                color_total += len(label)
+            normal_accuracy =int(color_correct) / int(color_total)
+            print('accuracy at normal images {}'.format(normal_accuracy))
+
+            gray_correct = 0
+            gray_total = 0
+            for i, (input, label) in enumerate(test_gray_loader):
+                outputs = model(input)
+                _, predicted = torch.max(outputs.data, 1)
+                gray_correct += (predicted == label).sum()
+                gray_total += len(label)
+            gray_accuracy =  int(gray_correct) / int(gray_total)
+            print('accuracy at gray images {}'.format(gray_accuracy))
+
+
+            pass
         else:
             if args.adv != '1':
                 import copy

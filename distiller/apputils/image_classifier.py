@@ -211,6 +211,7 @@ def init_classifier_compression_arg_parser():
     SUMMARY_CHOICES = ['sparsity', 'compute', 'model', 'modules', 'png', 'png_w_params']
 
     parser = argparse.ArgumentParser(description='Distiller image classification model compression')
+    parser.add_argument('--fairness-test', help='test fairness or not', default=0, choices=('0', '1'))
     parser.add_argument('--adv-batch-size', help='batch for attack', default=64,type =int)
     parser.add_argument('--extraction-epoch', help='extraction attack or not', default=1000,type=int)
     parser.add_argument('--extraction-attack', help='extraction attack or not', default=0, choices=('0', '1'))
