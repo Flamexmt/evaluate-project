@@ -303,15 +303,25 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info('--------------------')
                 msglogger.info('do CarliniL2Method Attack test!')
                 from art.attacks.evasion import CarliniL2Method
-                cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.adv_batch_size,binary_search_steps=2)
+                cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.adv_batch_size,binary_search_steps=20,max_iter=10)
                 x_test_adv = cw_attack.generate(x=x_test[:])
                 msglogger.info('success generate CarliniL2Method Attack')
-                predictions = ADVclassifier.predict(x_test_adv,batch_size=args.batch_size)
-                accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-                msglogger.info("Accuracy under CarliniL2Method Attack: {}%".format(accuracy * 100))
-                success_rate = np.sum(np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(y_test)
-                msglogger.info("Attack sucess of CarliniL2Method Attack: {}%".format(success_rate * 100))
-                msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
+                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.adv_batch_size)
+                if 'imagenet' in args.data:
+                    predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
+                    predictions = np.argmax(predictions, axis=1)
+                    predictions = predictions.numpy()
+                    accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
+                    success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
+                else:
+                    accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+                    success_rate = np.sum(
+                        np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
+                        y_test)
+                msglogger.info("Accuracy under cw2 Attack: {}%".format(accuracy * 100))
+
+                msglogger.info("Attack sucess of cw2 Attack: {}%".format(success_rate * 100))
+                msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
 
 
             if args.pgd_attack == '1':
