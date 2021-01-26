@@ -211,6 +211,7 @@ def init_classifier_compression_arg_parser():
     SUMMARY_CHOICES = ['sparsity', 'compute', 'model', 'modules', 'png', 'png_w_params']
 
     parser = argparse.ArgumentParser(description='Distiller image classification model compression')
+    parser.add_argument('--stylized-dataset', help='test fairness or not', default='/home/exp/Downloads/xiamutian/stylized_imagenet')
     parser.add_argument('--fairness-test', help='test fairness or not', default=0, choices=('0', '1'))
     parser.add_argument('--adv-batch-size', help='batch for attack', default=64,type =int)
     parser.add_argument('--extraction-epoch', help='extraction attack or not', default=1000,type=int)
@@ -497,9 +498,13 @@ def save_collectors_data(collectors, directory):
         msglogger.info("Saved to {}".format(file_path))
 
 
-def load_data(args, fixed_subset=False, sequential=False, load_train=True, load_val=True, load_test=True):
+def load_data(args, fixed_subset=False, sequential=False, load_train=True, load_val=True, load_test=True, stylized_imagenet=False):
+    if stylized_imagenet:
+        datapath = args.stylized_dataset
+    else:
+        datapath = args.data
     train_loader, val_loader, test_loader, _ = apputils.load_data(args.dataset,
-                                                                  os.path.expanduser(args.data), args.batch_size,
+                                                                  os.path.expanduser(datapath), args.batch_size,
                                                                   args.workers, args.validation_split,
                                                                   args.deterministic,
                                                                   args.effective_train_size, args.effective_valid_size,

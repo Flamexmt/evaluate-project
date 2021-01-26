@@ -263,7 +263,7 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
             model_fp32_prepared = torch.quantization.prepare(fused_model, inplace=False)
             model_fp32_prepared.eval()
             model = torch.quantization.convert(model_fp32_prepared)
-        if checkpoint['extras']['half']:
+        if checkpoint['extras']['half'] or checkpoint['extra']['half_']:
             print('load a half model')
             model = model.half()
     except:

@@ -48,7 +48,7 @@ if TYPE_CHECKING:
     from art.defences.postprocessor import Postprocessor
 
 logger = logging.getLogger(__name__)
-HALF = False
+HALF = True
 INT = False
 
 class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):  # lgtm [py/missing-call-to-init]
@@ -334,14 +334,19 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
             end = datetime.datetime.now()
             cost = end - start
             highest = 0
+            save_path = '/home/exp/11/'  # a existed path
             if (correct/total)>highest:
-                now = str(datetime.datetime.now())
-                torch.save(self._model,'/home/exp/Downloads/xiamutian/evaluate-project/outputsdata/extraction_records/'+now+'extraction_bset'+str(highest)+'.pth')
+                highest = correct/total
+                if i_epoch > 900:
+                    torch.save(self._model._model,save_path + str(i_epoch)+'_epch_bset_'+str(highest)+'.pth')
             print('extraction rate',(correct/total),end='||')
             print('loss',(epoch_loss.detach().item()),end = '||')
             print('time cost',(cost))
 
             if correct/total>=1:
+                torch.save(self._model._model,
+                           save_path+ str(i_epoch) + '_epoch_bset_' + str(highest) + '.pth')
+
                 break
     def fit_generator(self, generator: "DataGenerator", nb_epochs= 20, **kwargs) -> None:
         """
@@ -802,6 +807,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                         elif isinstance(self._model, nn.Module):
                             # changepoint
                             if HALF:
+                                x = x.cuda()
                                 x = x.half()
                             if INT:
                                 x = x.cpu()

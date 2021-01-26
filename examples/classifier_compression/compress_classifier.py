@@ -231,51 +231,66 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     'test_gray_path': './data.cifar/cifar_gray_test_imgs',
                     'test_label_path': './data.cifar/cifar_test_labels',
                 }
+                normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                transform_test = transforms.Compose([
+                    transforms.ToTensor(),
+                    normalize,
+                ])
+                test_color_data = GrayCifarDataset(data_setting['test_color_path'],
+                                                   data_setting['test_label_path'],
+                                                   transform_test)
+                test_gray_data = GrayCifarDataset(data_setting['test_gray_path'],
+                                                  data_setting['test_label_path'],
+                                                  transform_test)
+
+                test_color_loader = torch.utils.data.DataLoader(
+                    test_color_data, batch_size=args.batch_size,
+                    shuffle=False, num_workers=2)
+                test_gray_loader = torch.utils.data.DataLoader(
+                    test_gray_data, batch_size=args.batch_size,
+                    shuffle=False, num_workers=2)
+
+                print('do normal testing')
+                color_correct = 0
+                color_total = 0
+                for i, (input, label) in enumerate(test_color_loader):
+                    outputs = model(input)
+                    _, predicted = torch.max(outputs.data, 1)
+                    color_correct += (predicted == label).sum()
+                    color_total += len(label)
+                normal_accuracy = int(color_correct) / int(color_total)
+                print('accuracy at normal images {}'.format(normal_accuracy))
+
+                gray_correct = 0
+                gray_total = 0
+                for i, (input, label) in enumerate(test_gray_loader):
+                    outputs = model(input)
+                    _, predicted = torch.max(outputs.data, 1)
+                    gray_correct += (predicted == label).sum()
+                    gray_total += len(label)
+                gray_accuracy = int(gray_correct) / int(gray_total)
+                print('accuracy at changed images {}'.format(gray_accuracy))
             else:
-                data_setting = {}
-            normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-            transform_test = transforms.Compose([
-                transforms.ToTensor(),
-                normalize,
-            ])
-            test_color_data = GrayCifarDataset(data_setting['test_color_path'],
-                                                      data_setting['test_label_path'],
-                                                      transform_test)
-            test_gray_data = GrayCifarDataset(data_setting['test_gray_path'],
-                                                     data_setting['test_label_path'],
-                                                     transform_test)
+                test_gray_loader  = classifier.load_data(args, load_train=False, load_val=False, load_test=True , stylized_imagenet=True)
+                color_correct = 0
+                color_total = 0
+                for i, (input, label) in enumerate(test_loader):
+                    outputs = model(input)
+                    _, predicted = torch.max(outputs.data, 1)
+                    color_correct += (predicted == label).sum()
+                    color_total += len(label)
+                normal_accuracy = int(color_correct) / int(color_total)
+                print('accuracy at normal images {}'.format(normal_accuracy))
 
-
-            test_color_loader = torch.utils.data.DataLoader(
-                test_color_data, batch_size=args.batch_size,
-                shuffle=False, num_workers=2)
-            test_gray_loader = torch.utils.data.DataLoader(
-                test_gray_data, batch_size=args.batch_size,
-                shuffle=False, num_workers=2)
-
-
-            print('do normal testing')
-            color_correct = 0
-            color_total = 0
-            for i, (input, label) in enumerate(test_color_loader):
-                outputs = model(input)
-                _, predicted = torch.max(outputs.data, 1)
-                color_correct += (predicted == label).sum()
-                color_total += len(label)
-            normal_accuracy =int(color_correct) / int(color_total)
-            print('accuracy at normal images {}'.format(normal_accuracy))
-
-            gray_correct = 0
-            gray_total = 0
-            for i, (input, label) in enumerate(test_gray_loader):
-                outputs = model(input)
-                _, predicted = torch.max(outputs.data, 1)
-                gray_correct += (predicted == label).sum()
-                gray_total += len(label)
-            gray_accuracy =  int(gray_correct) / int(gray_total)
-            print('accuracy at gray images {}'.format(gray_accuracy))
-
-
+                gray_correct = 0
+                gray_total = 0
+                for i, (input, label) in enumerate(test_gray_loader):
+                    outputs = model(input)
+                    _, predicted = torch.max(outputs.data, 1)
+                    gray_correct += (predicted == label).sum()
+                    gray_total += len(label)
+                gray_accuracy = int(gray_correct) / int(gray_total)
+                print('accuracy at changed images {}'.format(gray_accuracy))
             pass
         else:
             if args.adv != '1':
@@ -348,8 +363,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 ADVclassifier = PyTorchClassifier(model=model, clip_values=(min_pixel_value, max_pixel_value),
                                                   loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
                 msglogger.info('normal model!')
-            x_test = x_test[:]
-            y_test = y_test[:]
+            x_test = x_test[:100]
+            y_test = y_test[:100]
             msglogger.info('do normal test')
             normal_predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size)
             if 'imagenet' in args.data:
