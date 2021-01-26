@@ -218,6 +218,8 @@ def init_classifier_compression_arg_parser():
     parser.add_argument('--cw-attack', help='cw attack or not', default=0, choices=('0', '1'))
     parser.add_argument('--pgd-attack', help='pgd attack or not', default=0, choices=('0', '1'))
     parser.add_argument('--square-attack', help='square attack or not', default=0, choices=('0', '1'))
+    parser.add_argument('--numpy-xpath', default='')
+    parser.add_argument('--numpy-ypath', default='')
 
     parser.add_argument('--quantized', help='quantize or not', default=0, choices=('0', '8', '16'))
     parser.add_argument('--adv', default=0)

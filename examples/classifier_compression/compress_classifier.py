@@ -308,21 +308,29 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 x_test = (x_test - 0.1307) / 0.3081
                 advinput = (1, 28, 28)
             elif 'imagenet' in args.data:
-                import copy
-                classnum = 1000
-                advinput = (3, 224, 224)
-                print('tensor to numpy process')
-                for validation_step, (inputs, target) in enumerate(test_loader):
-                    if validation_step == 0:
-                        x_test = (inputs).numpy()
-                        y_test = (target).numpy()
-                    else:
-                        x_temp = (inputs).numpy()
-                        y_temp = (target).numpy()
-                        x_test = np.append(x_test, x_temp, axis=0)
-                        y_test = np.append(y_test, y_temp, axis=0)
-                        min_pixel_value = 0
-                        max_pixel_value = 1
+                if args.numpy_xpath != '':
+                    print('load data from file')
+                    x_test = np.load(args.numpy_xpath)
+                    y_test = np.load(args.numpy_ypath)
+                else:
+                    import copy
+                    classnum = 1000
+                    advinput = (3, 224, 224)
+                    min_pixel_value = 0
+                    max_pixel_value = 1
+                    print('tensor to numpy process')
+                    for validation_step, (inputs, target) in enumerate(test_loader):
+                        if validation_step == 0:
+                            x_test = (inputs).numpy()
+                            y_test = (target).numpy()
+                            break
+                        else:
+                            x_temp = (inputs).numpy()
+                            y_temp = (target).numpy()
+                            x_test = np.append(x_test, x_temp, axis=0)
+                            y_test = np.append(y_test, y_temp, axis=0)
+                    np.save('imagenet_x_test',x_test)
+                    np.save('imagenet_y_test',y_test)
             if 'imagenet' not in args.data:
                 x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
                 x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)

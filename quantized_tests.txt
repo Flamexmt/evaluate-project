@@ -17,6 +17,9 @@ mobilenet_v2 test(float,half,quantized):
 --cpu quantized模型设为--cpu,float和half模型设为--gpus 0
 --workers 一起运行的核心数
 --cw-attack  还有同样的pgd，sqaure，代表这个攻击做不做，1是做，0是不做
+--numpy-xpatch data path to imagenet x test numpy file
+--numpy-ypatch data path to imagenet y test numpy file
+
 其它的参数不用改动
 
 在运行half和quantized模型时，art工具会报错，问题就是输入的类型和模型的类型不匹配，需要手动调整一下
