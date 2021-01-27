@@ -49,7 +49,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
+HALF = False
+INT = True
 class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):  # lgtm [py/missing-call-to-init]
     """
     This class implements a classifier with the PyTorch framework.
@@ -261,7 +262,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
         return predictions
 
-    def fit(self, x       , y       , batch_size        = 128, nb_epochs        = 10, **kwargs) -> None:
+    def fit(self, x      , y       , batch_size        = 128, nb_epochs        = 10, **kwargs) -> None:
         """
         Fit the classifier on the training set `(x, y)`.
         :param x: Training data.
@@ -311,7 +312,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
                 # Perform prediction
-                model_outputs = self._model(i_batch)
+                model_outputs = self._model(i_batch,extracion =True)
                 # Form the loss function
                 loss = self._loss(model_outputs[-1], o_batch)
                 predictions = torch.nn.Softmax(dim=1)(model_outputs[0]).cpu().detach().numpy()
@@ -763,7 +764,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
                     # pylint: disable=W0221
                     # disable pylint because of API requirements for function
-                    def forward(self, x):
+                    def forward(self, x, extracion=False):
                         """
                         This is where we get outputs from the input model.
                         :param x: Input data.
@@ -782,12 +783,15 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                                 result.append(x)
 
                         elif isinstance(self._model, nn.Module):
-                            # changepoint
-                            # x = x.half()
-                            # x = x.cpu()
-                            # self._model = self._model.cpu()
+
                             x = x.cuda()
                             self._model = self._model.cuda()
+                            if not extracion:
+                                if HALF:
+                                    x = x.half()
+                                if INT:
+                                    x = x.cpu()
+                                    self._model = self._model.cpu()
                             x = self._model(x)
                             result.append(x)
 

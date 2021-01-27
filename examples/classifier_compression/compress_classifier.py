@@ -390,7 +390,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.adv_batch_size,binary_search_steps=20,max_iter=10)
                 x_test_adv = cw_attack.generate(x=x_test[:])
                 msglogger.info('success generate CarliniL2Method Attack')
-                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.adv_batch_size)
+                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.adv_batch_size,input_type=input_type)
                 if 'imagenet' in args.data:
                     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
                     predictions = np.argmax(predictions, axis=1)
@@ -416,7 +416,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size,eps=8,eps_step=2)
                 x_test_adv = pgd_attack.generate(x=x_test)
                 msglogger.info('success generate ProjectedGradientDescent Attack')
-                predictions = ADVclassifier.predict(x_test_adv,batch_size=args.adv_batch_size)
+                predictions = ADVclassifier.predict(x_test_adv,batch_size=args.adv_batch_size,input_type=input_type)
                 if 'imagenet' in args.data:
                     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
                     predictions = np.argmax(predictions, axis=1)
@@ -440,7 +440,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 square_attack = SquareAttack(estimator=ADVclassifier, batch_size=args.adv_batch_size, p_init=0.3)
                 x_test_adv = square_attack.generate(x=x_test)
                 msglogger.info('success generate SquareAttack')
-                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size)
+                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size,input_type=input_type)
                 if 'imagenet' in args.data:
                     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
                     predictions = np.argmax(predictions, axis=1)
@@ -477,8 +477,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
 
                 black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier)
                 msglogger.info('success generate Extraction Attack')
-                y_test_predicted_extracted = black_box_model.predict(x_test)
-                y_test_predicted_target = ADVclassifier.predict(x_test)
+                y_test_predicted_extracted = black_box_model.predict(x_test,input_type=input_type)
+                y_test_predicted_target = ADVclassifier.predict(x_test,input_type=input_type)
 
                 format_string = np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / \
                                 y_test.shape[0]
