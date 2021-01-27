@@ -48,8 +48,7 @@ if TYPE_CHECKING:
     from art.defences.postprocessor import Postprocessor
 
 logger = logging.getLogger(__name__)
-HALF = False
-INT = True
+
 
 class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):  # lgtm [py/missing-call-to-init]
     """
@@ -77,7 +76,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     ) -> None:
         """
         Initialization specifically for the PyTorch-based implementation.
-
         :param model: PyTorch model. The output of the model can be logits, probabilities or anything else. Logits
                output should be preferred where possible to ensure attack efficiency.
         :param loss: The loss function for which to compute gradients for training. The target label must be raw
@@ -184,7 +182,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def device(self) -> "torch.device":
         """
         Get current used device.
-
         :return: Current used device.
         """
         return self._device
@@ -197,7 +194,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def input_shape(self) -> Tuple[int, ...]:
         """
         Return the shape of one input sample.
-
         :return: Shape of one input sample.
         """
         return self._input_shape  # type: ignore
@@ -221,10 +217,9 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
         else:
             return y
 
-    def predict(self, x       , batch_size        = 128, **kwargs) -> np.ndarray:
+    def predict(self, x, batch_size=128, input_type='float',**kwargs) -> np.ndarray:
         """
         Perform prediction for a batch of inputs.
-
         :param x: Test set.
         :param batch_size: Size of batches.
         :return: Array of predictions of shape `(nb_inputs, nb_classes)`.
@@ -233,7 +228,12 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
         # Put the model in the eval mode
         self._model.eval()
-
+        if input_type=='float':
+            self._model = self._model.cuda()
+        elif input_type=='int':
+            self._model = self._model.cpu()
+        elif input_type=='half':
+            self._model = self._model.cuda().half()
         # Apply preprocessing
         x_preprocessed, _ = self._apply_preprocessing(x, y=None, fit=False)
 
@@ -246,9 +246,13 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                 m * batch_size,
                 min((m + 1) * batch_size, x_preprocessed.shape[0]),
             )
-
             with torch.no_grad():
-                model_outputs = self._model(torch.from_numpy(x_preprocessed[begin:end]).to(self._device))
+                if input_type == 'float':
+                    model_outputs = self._model(torch.from_numpy(x_preprocessed[begin:end]).to('cuda:0'))
+                elif input_type == 'int':
+                    model_outputs = self._model(torch.from_numpy(x_preprocessed[begin:end]).to('cpu'))
+                elif input_type=='half':
+                    model_outputs = self._model(torch.from_numpy(x_preprocessed[begin:end]).to('cuda:0').half())
             output = model_outputs[-1]
             results[begin:end] = output.detach().cpu().numpy()
 
@@ -260,7 +264,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def fit(self, x       , y       , batch_size        = 128, nb_epochs        = 10, **kwargs) -> None:
         """
         Fit the classifier on the training set `(x, y)`.
-
         :param x: Training data.
         :param y: Target values (class labels) one-hot-encoded of shape (nb_samples, nb_classes) or index labels of
                   shape (nb_samples,).
@@ -273,7 +276,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
         # Put the model in the training mode
         self._model.train()
-
+        self._model = self._model.cuda()
         if self._optimizer is None:
             raise ValueError("An optimizer is needed to train the model, but none for provided.")
 
@@ -288,6 +291,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
         num_batch = int(np.ceil(len(x_preprocessed) / float(batch_size)))
         ind = np.arange(len(x_preprocessed))
         total = len(y_preprocessed)
+
         # Start training
         for i_epoch in range(nb_epochs):
             print(i_epoch+1,'/',nb_epochs,'epochs',end='||')
@@ -301,24 +305,21 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
             start = datetime.datetime.now()
             for m in range(num_batch):
                 #changepoint
-                i_batch = torch.from_numpy(x_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to('cuda:0')
-                o_batch = torch.from_numpy(y_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to('cuda:0')
+                i_batch = torch.from_numpy(x_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device).cuda()
+                o_batch = torch.from_numpy(y_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device).cuda()
                 # changepoint
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
                 # Perform prediction
-                self._model = self._model.cuda()
-                self._loss = self._loss.cuda()
                 model_outputs = self._model(i_batch)
                 # Form the loss function
-                loss = self._loss(model_outputs[-1].cuda(), o_batch)
+                loss = self._loss(model_outputs[-1], o_batch)
                 predictions = torch.nn.Softmax(dim=1)(model_outputs[0]).cpu().detach().numpy()
                 predictions = np.argmax(predictions, axis=1)
                 correct += len((np.where((predictions) == (o_batch.cpu().detach().numpy())))[0])
                 # Do training
                 if self._use_amp:
                     from apex import amp
-
                     with amp.scale_loss(loss, self._optimizer) as scaled_loss:
                         scaled_loss.backward()
 
@@ -329,23 +330,15 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
             end = datetime.datetime.now()
             cost = end - start
             highest = 0
-            save_path = '/home/exp/extraction_results/'  # a existed path
-            if (correct/total)>highest:
-                highest = correct/total
-                if i_epoch > 900:
-                    torch.save(self._model._model,save_path + str(i_epoch)+'_epch_bset_'+str(highest)+'.pth')
-            print('extraction rate',float(correct/total),end='||')
+            print('extraction rate',(correct/total),end='||')
             print('loss',(epoch_loss.detach().item()),end = '||')
             print('time cost',(cost))
 
             if correct/total>=1:
-                torch.save(self._model._model,
-                           save_path+ str(i_epoch) + '_epoch_bset_' + str(highest) + '.pth')
                 break
     def fit_generator(self, generator: "DataGenerator", nb_epochs= 20, **kwargs) -> None:
         """
         Fit the classifier using the generator that yields batches as specified.
-
         :param generator: Batch generator providing `(x, y)` for each epoch.
         :param nb_epochs: Number of epochs to use for training.
         :param kwargs: Dictionary of framework-specific arguments. This parameter is not currently supported for PyTorch
@@ -402,7 +395,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def class_gradient(self, x       , label: Union[int, List[int], None] = None, **kwargs) -> np.ndarray:
         """
         Compute per-class derivatives w.r.t. `x`.
-
         :param x: Sample input with shape as expected by the model.
         :param label: Index of a specific per-class derivative. If an integer is provided, the gradient of that class
                       output is computed for all samples. If multiple values as provided, the first dimension should
@@ -496,7 +488,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def loss(self, x       , y       , reduction: str = "none", **kwargs) -> np.ndarray:
         """
         Compute the loss function w.r.t. `x`.
-
         :param x: Sample input with shape as expected by the model.
         :param y: Target values (class labels) one-hot-encoded of shape `(nb_samples, nb_classes)` or indices
                   of shape `(nb_samples,)`.
@@ -536,7 +527,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     ) -> Union[np.ndarray, "torch.Tensor"]:
         """
         Compute the gradient of the loss function w.r.t. `x`.
-
         :param x: Sample input with shape as expected by the model.
         :param y: Target values (class labels) one-hot-encoded of shape `(nb_samples, nb_classes)` or indices of shape
                   `(nb_samples,)`.
@@ -602,7 +592,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
         Return the output of the specified layer for input `x`. `layer` is specified by layer index (between 0 and
         `nb_layers - 1`) or by name. The number of layers can be determined by counting the results returned by
         calling `layer_names`.
-
         :param x: Input for computing the activations.
         :param layer: Layer for computing the activations
         :param batch_size: Size of batches.
@@ -651,7 +640,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def set_learning_phase(self, train: bool) -> None:
         """
         Set the learning phase for the backend framework.
-
         :param train: True to set the learning phase to training, False to set it to prediction.
         """
         if isinstance(train, bool):
@@ -661,7 +649,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def save(self, filename: str, path        = None) -> None:
         """
         Save a model to file in the format specific to the backend framework.
-
         :param filename: Name of the file where to store the model.
         :param path: Path of the folder where to store the model. If no path is specified, the model will be stored in
                      the default data location of the library `ART_DATA_PATH`.
@@ -686,7 +673,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def __getstate__(self) -> Dict[str, Any]:
         """
         Use to ensure `PyTorchClassifier` can be pickled.
-
         :return: State dictionary with instance parameters.
         """
         # pylint: disable=W0212
@@ -708,7 +694,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
     def __setstate__(self, state: Dict[str, Any]) -> None:
         """
         Use to ensure `PyTorchClassifier` can be unpickled.
-
         :param state: State dictionary with instance parameters to restore.
         """
         import torch  # lgtm [py/repeated-import]
@@ -771,7 +756,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                     def __init__(self, model: torch.nn.Module):
                         """
                         Initialization by storing the input model.
-
                         :param model: PyTorch model. The forward function of the model must return the logit output.
                         """
                         super().__init__()
@@ -782,7 +766,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                     def forward(self, x):
                         """
                         This is where we get outputs from the input model.
-
                         :param x: Input data.
                         :type x: `torch.Tensor`
                         :return: a list of output layers, where the last 2 layers are logit and final outputs.
@@ -800,12 +783,11 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
                         elif isinstance(self._model, nn.Module):
                             # changepoint
-                            if HALF:
-                                x = x.cuda()
-                                x = x.half()
-                            if INT:
-                                x = x.cpu()
-                                self._model = self._model.cpu()
+                            # x = x.half()
+                            # x = x.cpu()
+                            # self._model = self._model.cpu()
+                            x = x.cuda()
+                            self._model = self._model.cuda()
                             x = self._model(x)
                             result.append(x)
 
@@ -818,9 +800,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                     def get_layers(self) -> List[str]:
                         """
                         Return the hidden layers in the model, if applicable.
-
                         :return: The hidden layers in the model, input and output layers excluded.
-
                         .. warning:: `get_layers` tries to infer the internal structure of the model.
                                      This feature comes with no guarantees on the correctness of the result.
                                      The intended order of the layers tries to match their order in the model, but this

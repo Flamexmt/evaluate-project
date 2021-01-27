@@ -354,19 +354,25 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             if 'half' in args.resumed_checkpoint_path:
                 ADVclassifier = PyTorchClassifier(model=model.half(), clip_values=(min_pixel_value, max_pixel_value),
                                               loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+                input_type = 'half'
                 msglogger.info('half model!')
             elif 'quantized' in args.resumed_checkpoint_path:
                 ADVclassifier = PyTorchClassifier(model=model, clip_values=(min_pixel_value, max_pixel_value),
                                                   loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+                input_type = 'int'
+
                 msglogger.info('quantized model!')
             else:
                 ADVclassifier = PyTorchClassifier(model=model, clip_values=(min_pixel_value, max_pixel_value),
                                                   loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+                input_type = 'float'
+
                 msglogger.info('normal model!')
+
             x_test = x_test[:]
             y_test = y_test[:]
             msglogger.info('do normal test')
-            normal_predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size)
+            normal_predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size,input_type =input_type)
             if 'imagenet' in args.data:
                 normal_predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(normal_predictions))
                 normal_predictions = np.argmax(normal_predictions, axis=1)
@@ -462,28 +468,12 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                                  batch_size_fit=args.batch_size)
                 cifar_model = distiller.models.create_model(args.pretrained, args.dataset, args.arch,
                                                             parallel=not args.load_serialized, device_ids=args.gpus)
-                thief_optimizer = torch.optim.SGD(cifar_model.parameters(), lr=0.01)
-                if 'half' in args.resumed_checkpoint_path:
-                    thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model.half(),
+                thief_optimizer = torch.optim.SGD(cifar_model.parameters(), lr=0.05, momentum=0.9)
+                thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model,
                                                                          optimizer=thief_optimizer,
                                                                          clip_values=(min_pixel_value, max_pixel_value),
                                                                          loss=ADVcriterion, input_shape=advinput,
                                                                          nb_classes=classnum)
-                    msglogger.info('half model!')
-                elif 'quantized' in args.resumed_checkpoint_path:
-                    thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model,
-                                                                         optimizer=thief_optimizer,
-                                                                         clip_values=(min_pixel_value, max_pixel_value),
-                                                                         loss=ADVcriterion, input_shape=advinput,
-                                                                         nb_classes=classnum)
-                    msglogger.info('quantized model!')
-                else:
-                    thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model,
-                                                                         optimizer=thief_optimizer,
-                                                                         clip_values=(min_pixel_value, max_pixel_value),
-                                                                         loss=ADVcriterion, input_shape=advinput,
-                                                                         nb_classes=classnum)
-                    msglogger.info('normal model!')
 
                 black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier)
                 msglogger.info('success generate Extraction Attack')
