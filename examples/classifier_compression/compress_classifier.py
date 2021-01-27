@@ -363,8 +363,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 ADVclassifier = PyTorchClassifier(model=model, clip_values=(min_pixel_value, max_pixel_value),
                                                   loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
                 msglogger.info('normal model!')
-            x_test = x_test[:100]
-            y_test = y_test[:100]
+            x_test = x_test[:]
+            y_test = y_test[:]
             msglogger.info('do normal test')
             normal_predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size)
             if 'imagenet' in args.data:

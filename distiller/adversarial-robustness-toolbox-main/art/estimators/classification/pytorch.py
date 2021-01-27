@@ -48,8 +48,8 @@ if TYPE_CHECKING:
     from art.defences.postprocessor import Postprocessor
 
 logger = logging.getLogger(__name__)
-HALF = True
-INT = False
+HALF = False
+INT = True
 
 class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):  # lgtm [py/missing-call-to-init]
     """
@@ -288,7 +288,6 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
         num_batch = int(np.ceil(len(x_preprocessed) / float(batch_size)))
         ind = np.arange(len(x_preprocessed))
         total = len(y_preprocessed)
-
         # Start training
         for i_epoch in range(nb_epochs):
             print(i_epoch+1,'/',nb_epochs,'epochs',end='||')
@@ -302,21 +301,17 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
             start = datetime.datetime.now()
             for m in range(num_batch):
                 #changepoint
-                i_batch = torch.from_numpy(x_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device)
-                o_batch = torch.from_numpy(y_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to(self._device)
+                i_batch = torch.from_numpy(x_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to('cuda:0')
+                o_batch = torch.from_numpy(y_preprocessed[ind[m * batch_size : (m + 1) * batch_size]]).to('cuda:0')
                 # changepoint
-                if HALF:
-                    i_batch = i_batch.half()
-                    i_batch = i_batch.cpu()
-                if INT:
-                    o_batch = o_batch.cpu()
-                    self._model=self._model.cpu()
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
                 # Perform prediction
+                self._model = self._model.cuda()
+                self._loss = self._loss.cuda()
                 model_outputs = self._model(i_batch)
                 # Form the loss function
-                loss = self._loss(model_outputs[-1], o_batch)
+                loss = self._loss(model_outputs[-1].cuda(), o_batch)
                 predictions = torch.nn.Softmax(dim=1)(model_outputs[0]).cpu().detach().numpy()
                 predictions = np.argmax(predictions, axis=1)
                 correct += len((np.where((predictions) == (o_batch.cpu().detach().numpy())))[0])
@@ -334,19 +329,18 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
             end = datetime.datetime.now()
             cost = end - start
             highest = 0
-            save_path = '/home/exp/11/'  # a existed path
+            save_path = '/home/exp/extraction_results/'  # a existed path
             if (correct/total)>highest:
                 highest = correct/total
                 if i_epoch > 900:
                     torch.save(self._model._model,save_path + str(i_epoch)+'_epch_bset_'+str(highest)+'.pth')
-            print('extraction rate',(correct/total),end='||')
+            print('extraction rate',float(correct/total),end='||')
             print('loss',(epoch_loss.detach().item()),end = '||')
             print('time cost',(cost))
 
             if correct/total>=1:
                 torch.save(self._model._model,
                            save_path+ str(i_epoch) + '_epoch_bset_' + str(highest) + '.pth')
-
                 break
     def fit_generator(self, generator: "DataGenerator", nb_epochs= 20, **kwargs) -> None:
         """
