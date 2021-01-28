@@ -679,12 +679,12 @@ def test(test_loader, model, criterion, loggers=None, activations_collectors=Non
         activations_collectors = create_activation_stats_collectors(model, None)
 
     with collectors_context(activations_collectors["test"]) as collectors:
-        top1, top5, lossses = _validate(test_loader, model, criterion, loggers, args)
+        top1, top5, lossses, confusion = _validate(test_loader, model, criterion, loggers, args)
         distiller.log_activation_statistics(-1, "test", loggers, collector=collectors['sparsity'])
         save_collectors_data(collectors, msglogger.logdir)
     endtime = datetime.datetime.now()
     msglogger.info('time cost is '+str(endtime - starttime)+' seconds.')
-    return top1, top5, lossses
+    return top1, top5, lossses, confusion
 
 
 # Temporary patch until we refactor early-exit handling
@@ -743,8 +743,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
     with torch.no_grad():
         for validation_step, (inputs, target) in enumerate(data_loader):
             inputs, target = inputs.to(args.device), target.to(args.device)
-            # print(inputs.shape,target.shape)
-            # print(target.data)
+
             # compute output from model
             output = model(inputs)
             # print(output.shape,output.detach().shape,target.shape)
@@ -774,16 +773,8 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
         np.set_printoptions(threshold=np.inf)
         if args.display_confusion:
             msglogger.info('==> Confusion:\n%s\n', str(confusion.value()))
-            correct_number = confusion.value().diagonal()
-            accracy = []
-            for line in range(len(confusion.value())):
-                accracy.append(correct_number[line]/confusion.value()[line].sum())
-            msglogger.info('category accuracy is ')
-            msglogger.info(str(accracy))
-            msglogger.info('\n')
 
-            msglogger.info('\n')
-        return classerr.value(1), classerr.value(5), losses['objective_loss'].mean
+        return classerr.value(1), classerr.value(5), losses['objective_loss'].mean, confusion
     else:
         total_top1, total_top5, losses_exits_stats = earlyexit_validate_stats(args)
         return total_top1, total_top5, losses_exits_stats[args.num_exits - 1]
