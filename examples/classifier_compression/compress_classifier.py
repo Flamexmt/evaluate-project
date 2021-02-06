@@ -484,7 +484,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 epochs = args.extraction_epoch
                 msglogger.info('epoch is')
                 msglogger.info(str(epochs))
-                extraction_attack = KnockoffNets(classifier=ADVclassifier, nb_epochs=epochs, nb_stolen=10000,
+
+                extraction_attack = KnockoffNets(classifier=ADVclassifier, nb_epochs=epochs, nb_stolen=len(x_test),
                                                  batch_size_fit=args.batch_size)
                 cifar_model = distiller.models.create_model(args.pretrained, args.dataset, args.arch,
                                                             parallel=not args.load_serialized, device_ids=args.gpus)
