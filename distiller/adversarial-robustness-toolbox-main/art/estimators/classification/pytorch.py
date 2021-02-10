@@ -262,7 +262,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
         return predictions
 
-    def fit(self, x      , y       , batch_size        = 128, nb_epochs        = 10, **kwargs) -> None:
+    def fit(self, x      , y       , batch_size        = 128, nb_epochs        = 10, gpu=0,**kwargs) -> None:
         """
         Fit the classifier on the training set `(x, y)`.
         :param x: Training data.
@@ -312,7 +312,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
                 # Perform prediction
-                model_outputs = self._model(i_batch,extracion =True)
+                model_outputs = self._model(i_batch,extracion =True,gpu=gpu)
                 # Form the loss function
                 loss = self._loss(model_outputs[-1], o_batch)
                 predictions = torch.nn.Softmax(dim=1)(model_outputs[0]).cpu().detach().numpy()
@@ -764,7 +764,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
                     # pylint: disable=W0221
                     # disable pylint because of API requirements for function
-                    def forward(self, x, extracion=False):
+                    def forward(self, x, extracion=False,gpu=0):
                         """
                         This is where we get outputs from the input model.
                         :param x: Input data.
@@ -784,8 +784,8 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
 
                         elif isinstance(self._model, nn.Module):
 
-                            x = x.cuda()
-                            self._model = self._model.cuda()
+                            x = x.cuda(gpu)
+                            self._model = self._model.cuda(gpu)
                             if not extracion:
                                 if HALF:
                                     x = x.half()

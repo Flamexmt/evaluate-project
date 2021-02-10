@@ -213,6 +213,7 @@ def init_classifier_compression_arg_parser():
     parser = argparse.ArgumentParser(description='Distiller image classification model compression')
     parser.add_argument('--stylized-dataset', help='test fairness or not', default='/home/exp/Downloads/xiamutian/stylized_imagenet')
     parser.add_argument('--fairness-test', help='test fairness or not', default=0, choices=('0', '1'))
+    parser.add_argument('--extraction-gpu', help='extraction gpu', default=0,type=int)
     parser.add_argument('--adv-batch-size', help='batch for attack', default=64,type =int)
     parser.add_argument('--extraction-epoch', help='extraction attack or not', default=1000,type=int)
     parser.add_argument('--extraction-attack', help='extraction attack or not', default=0, choices=('0', '1'))

@@ -97,7 +97,7 @@ class KnockoffNets(ExtractionAttack):
         self.use_probability = use_probability
         self._check_params()
 
-    def extract(self, x       , y       = None, **kwargs) -> "CLASSIFIER_TYPE":
+    def extract(self, x       , y       = None, gpu=0,**kwargs) -> "CLASSIFIER_TYPE":
         """
         Extract a thieved classifier.
 
@@ -129,13 +129,13 @@ class KnockoffNets(ExtractionAttack):
 
         # Implement model extractions
         if self.sampling_strategy == "random":
-            thieved_classifier = self._random_extraction(x, thieved_classifier)  # type: ignore
+            thieved_classifier = self._random_extraction(x, thieved_classifier,gpu=gpu)  # type: ignore
         else:
             thieved_classifier = self._adaptive_extraction(x, y, thieved_classifier)  # type: ignore
 
         return thieved_classifier
 
-    def _random_extraction(self, x       , thieved_classifier: "CLASSIFIER_TYPE") -> "CLASSIFIER_TYPE":
+    def _random_extraction(self, x       , thieved_classifier: "CLASSIFIER_TYPE",gpu=0) -> "CLASSIFIER_TYPE":
         """
         Extract with the random sampling strategy.
 
@@ -151,7 +151,7 @@ class KnockoffNets(ExtractionAttack):
 
         # Train the thieved classifier
         thieved_classifier.fit(
-            x=selected_x, y=fake_labels, batch_size=self.batch_size_fit, nb_epochs=self.nb_epochs, verbose=0,
+            x=selected_x, y=fake_labels, batch_size=self.batch_size_fit, nb_epochs=self.nb_epochs, verbose=0,gpu=gpu
         )
 
         return thieved_classifier
