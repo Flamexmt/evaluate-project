@@ -312,6 +312,7 @@ class PyTorchClassifier(ClassGradientsMixin, ClassifierMixin, PyTorchEstimator):
                 # Zero the parameter gradients
                 self._optimizer.zero_grad()
                 # Perform prediction
+                torch.cuda.set_device(gpu)
                 model_outputs = self._model(i_batch,extracion =True,gpu=gpu)
                 # Form the loss function
                 loss = self._loss(model_outputs[-1], o_batch)
