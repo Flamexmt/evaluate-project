@@ -499,7 +499,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
 
                 black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier)
                 msglogger.info('success generate Extraction Attack')
-                y_test_predicted_extracted = black_box_model.predict(x_test)
+                y_test_predicted_extracted = black_box_model.predict(x_test , extracion=True)
                 y_test_predicted_target = ADVclassifier.predict(x_test,input_type=input_type)
                 if 'imagenet' in args.data:
                     y_test_predicted_extracted = torch.nn.Softmax(dim=1)(torch.from_numpy(y_test_predicted_extracted))
