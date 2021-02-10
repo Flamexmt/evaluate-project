@@ -50,3 +50,5 @@ evaluate_tools/dictkeys.txt
 examples/classifier_compression/dictkeys.txt
 examples/classifier_compression/dictkeys
 examples/classifier_compression/log.txt
+examples/classifier_compression/imagenet_y_test.npy
+examples/classifier_compression/imagenet_x_test.npy
