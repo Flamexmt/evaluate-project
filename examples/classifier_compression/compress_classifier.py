@@ -500,30 +500,57 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info('success generate Extraction Attack')
                 y_test_predicted_extracted = black_box_model.predict(x_test)
                 y_test_predicted_target = ADVclassifier.predict(x_test,input_type=input_type)
+                if 'imagenet' in args.data:
+                    y_test_predicted_extracted = torch.nn.Softmax(dim=1)(torch.from_numpy(y_test_predicted_extracted))
+                    y_test_predicted_extracted = np.argmax(y_test_predicted_extracted, axis=1)
+                    y_test_predicted_extracted = y_test_predicted_extracted.numpy()
 
-                format_string = np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / \
-                                y_test.shape[0]
+                    y_test_predicted_target = torch.nn.Softmax(dim=1)(torch.from_numpy(y_test_predicted_target))
+                    y_test_predicted_target = np.argmax(y_test_predicted_target, axis=1)
+                    y_test_predicted_target = y_test_predicted_target.numpy()
 
-                msglogger.info("Victime model - Test accuracy:")
-                msglogger.info(str(format_string))
-                format_string = np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / \
-                                y_test.shape[0]
-                msglogger.info(
-                    "Extracted model - Test accuracy:")
-                msglogger.info(str(format_string))
-                accuracy = np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / \
-                           y_test.shape[0]
-                format_string = np.sum(
-                    np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1)) / \
-                                y_test_predicted_target.shape[0]
-                msglogger.info(
-                    "Extracted model - Test Fidelity:")
-                msglogger.info(str(format_string))
-                success_rate = np.sum(
-                    np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1)) / \
-                               y_test_predicted_target.shape[0]
-            msglogger.info(args.resumed_checkpoint_path)
-            msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
+                    format_string = np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / \
+                                    y_test.shape[0]
+
+                    accuracy = len((np.where((y_test_predicted_extracted) == (y_test)))[0]) / len(y_test)
+                    success_rate = len((np.where((y_test_predicted_extracted) == (normal_predictions)))[0]) / len(y_test)
+
+
+                    msglogger.info(
+                        "Extracted model - Test accuracy:")
+                    msglogger.info(str(accuracy))
+                    
+                    msglogger.info(
+                        "Extracted model - Test Fidelity:")
+                    msglogger.info(str(success_rate))
+
+                    msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
+
+                else:
+                    format_string = np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / \
+                                    y_test.shape[0]
+
+                    msglogger.info("Victime model - Test accuracy:")
+                    msglogger.info(str(format_string))
+                    format_string = np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / \
+                                    y_test.shape[0]
+                    msglogger.info(
+                        "Extracted model - Test accuracy:")
+                    msglogger.info(str(format_string))
+                    accuracy = np.sum(np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test, axis=1)) / \
+                               y_test.shape[0]
+                    format_string = np.sum(
+                        np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1)) / \
+                                    y_test_predicted_target.shape[0]
+                    msglogger.info(
+                        "Extracted model - Test Fidelity:")
+                    msglogger.info(str(format_string))
+                    success_rate = np.sum(
+                        np.argmax(y_test_predicted_extracted, axis=1) == np.argmax(y_test_predicted_target, axis=1)) / \
+                                   y_test_predicted_target.shape[0]
+                    msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
+
+        msglogger.info(args.resumed_checkpoint_path)
         else:
             classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                           classifier.create_activation_stats_collectors(model, *args.activation_stats),
