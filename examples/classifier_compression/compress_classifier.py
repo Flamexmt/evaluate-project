@@ -356,6 +356,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
 
                     print('tensor to numpy process')
                     for validation_step, (inputs, target) in enumerate(test_loader):
+                        print('\r',validation_step,end='')
                         if validation_step == 0:
                             x_test = (inputs).numpy()
                             y_test = (target).numpy()
@@ -509,8 +510,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     y_test_predicted_target = np.argmax(y_test_predicted_target, axis=1)
                     y_test_predicted_target = y_test_predicted_target.numpy()
 
-                    format_string = np.sum(np.argmax(y_test_predicted_target, axis=1) == np.argmax(y_test, axis=1)) / \
-                                    y_test.shape[0]
 
                     accuracy = len((np.where((y_test_predicted_extracted) == (y_test)))[0]) / len(y_test)
                     success_rate = len((np.where((y_test_predicted_extracted) == (normal_predictions)))[0]) / len(y_test)
@@ -519,7 +518,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     msglogger.info(
                         "Extracted model - Test accuracy:")
                     msglogger.info(str(accuracy))
-                    
+
                     msglogger.info(
                         "Extracted model - Test Fidelity:")
                     msglogger.info(str(success_rate))
@@ -550,7 +549,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                    y_test_predicted_target.shape[0]
                     msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
 
-        msglogger.info(args.resumed_checkpoint_path)
+            msglogger.info(args.resumed_checkpoint_path)
         else:
             classifier.evaluate_model(test_loader, model, criterion, pylogger,
                                           classifier.create_activation_stats_collectors(model, *args.activation_stats),
