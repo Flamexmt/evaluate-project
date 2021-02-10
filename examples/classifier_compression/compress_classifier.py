@@ -496,7 +496,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                                                          loss=ADVcriterion, input_shape=advinput,
                                                                          nb_classes=classnum)
 
-                black_box_model = extraction_attack.exract(x=x_test[:], thieved_classifier=thief_classifier,gpu=args.extraction_gpu)
+                black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier,gpu=args.extraction_gpu)
                 msglogger.info('success generate Extraction Attack')
                 y_test_predicted_extracted = black_box_model.predict(x_test , extracion=True,input_type=input_type)
                 y_test_predicted_target = ADVclassifier.predict(x_test,input_type=input_type)
