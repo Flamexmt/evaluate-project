@@ -455,7 +455,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     success += np.sum(test_pred != adv_pred)
                     endtime = datetime.datetime.now()
                     print('\nsuccess generate', total, 'pics, time cost', endtime - starttime)
-                    break
 
                 accuracy = correct / total
                 msglogger.info("Accuracy under cw2 Attack: {}%".format(accuracy * 100))
