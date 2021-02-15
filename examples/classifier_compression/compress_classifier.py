@@ -138,6 +138,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             size = 'Size (MB):' + str(os.path.getsize("temp.p") / 1e6)
             os.remove('temp.p')
             return size
+
         test_loader = load_test_data(args)
 
         import torch.quantization as tq
@@ -171,6 +172,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     print(i, '/', len(loader))
                     i += 1
                     break
+
             calibrate_data = test_loader
             calibrate_model(model_fp32_prepared, calibrate_data)
             model_int8 = torch.quantization.convert(model_fp32_prepared)
@@ -221,10 +223,10 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 correct += (predicted == label).sum()
             msglogger.info('accuracy {}'.format(int(correct) / int(10000)))
             msglogger.info(args.resumed_checkpoint_path)
-        elif args.fairness_test =='1':
-            import  pickle
+        elif args.fairness_test == '1':
+            import pickle
             import torchvision.transforms as transforms
-            from  distiller.apputils.data_loaders import GrayCifarDataset
+            from distiller.apputils.data_loaders import GrayCifarDataset
             if 'cifar' in args.arch:
                 data_setting = {
                     'test_color_path': '../data.cifar/cifar_color_test_imgs',
@@ -251,27 +253,26 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     shuffle=False, num_workers=2)
 
                 print('do normal test')
-                normal_top1, normal_top5, normal_lossses, normal_confusion = classifier.evaluate_model(test_color_loader, model, criterion, pylogger,
-                                          classifier.create_activation_stats_collectors(model, *args.activation_stats),
-                                          args, scheduler=compression_scheduler)
-                normal_true_number = [] # for demographic parity
+                normal_top1, normal_top5, normal_lossses, normal_confusion = classifier.evaluate_model(
+                    test_color_loader, model, criterion, pylogger,
+                    classifier.create_activation_stats_collectors(model, *args.activation_stats),
+                    args, scheduler=compression_scheduler)
+                normal_true_number = []  # for demographic parity
                 for line in range(len(normal_confusion.value())):
-                    normal_true_number.append(normal_confusion.value()[1,:].sum())
+                    normal_true_number.append(normal_confusion.value()[1, :].sum())
 
+                normal_correct_number = normal_confusion.value().diagonal()  # for equal opp parity
 
-                normal_correct_number = normal_confusion.value().diagonal() # for equal opp parity
-
-
-                normal_accuracy = [] # for predective  parity
+                normal_accuracy = []  # for predective  parity
                 for line in range(len(normal_confusion.value())):
                     normal_accuracy.append(normal_correct_number[line] / normal_confusion.value()[line].sum())
 
-
                 print('do texture test')
-                texture_top1, texture_top5, texture_lossses, texture_confusion = classifier.evaluate_model(test_gray_loader, model, criterion, pylogger,
-                                                                       classifier.create_activation_stats_collectors(
-                                                                           model, *args.activation_stats),
-                                                                       args, scheduler=compression_scheduler)
+                texture_top1, texture_top5, texture_lossses, texture_confusion = classifier.evaluate_model(
+                    test_gray_loader, model, criterion, pylogger,
+                    classifier.create_activation_stats_collectors(
+                        model, *args.activation_stats),
+                    args, scheduler=compression_scheduler)
                 texture_true_number = []  # for demographic parity
                 for line in range(len(texture_confusion.value())):
                     texture_true_number.append(texture_confusion.value()[1, :].sum())
@@ -282,8 +283,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 for line in range(len(texture_confusion.value())):
                     texture_accuracy.append(texture_correct_number[line] / texture_confusion.value()[line].sum())
 
-
-                demograpic_parity = (normal_true_number/texture_true_number).mean()
+                demograpic_parity = (normal_true_number / texture_true_number).mean()
 
                 equal_parity = (normal_correct_number - texture_correct_number).abs().mean()
                 import numpy as np
@@ -300,7 +300,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info('-----------------')
 
             else:
-                test_gray_loader  = classifier.load_data(args, load_train=False, load_val=False, load_test=True , stylized_imagenet=True)
+                test_gray_loader = classifier.load_data(args, load_train=False, load_val=False, load_test=True,
+                                                        stylized_imagenet=True)
                 color_correct = 0
                 color_total = 0
                 for i, (input, label) in enumerate(test_loader):
@@ -326,7 +327,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             import torch.nn as nn
             import art.config
             import torch.optim as optim
-            from  art.classifiers import PyTorchClassifier
+            from art.classifiers import PyTorchClassifier
             # prepare tester
             ADVcriterion = nn.CrossEntropyLoss()
             # load data
@@ -355,7 +356,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
 
                     print('tensor to numpy process')
                     for validation_step, (inputs, target) in enumerate(test_loader):
-                        print('\r',validation_step,end='')
+                        print('\r', validation_step, end='')
                         if validation_step == 0:
                             x_test = (inputs).numpy()
                             y_test = (target).numpy()
@@ -364,8 +365,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                             y_temp = (target).numpy()
                             x_test = np.append(x_test, x_temp, axis=0)
                             y_test = np.append(y_test, y_temp, axis=0)
-                    np.save('imagenet_x_test',x_test)
-                    np.save('imagenet_y_test',y_test)
+                    np.save('imagenet_x_test', x_test)
+                    np.save('imagenet_y_test', y_test)
             if 'imagenet' not in args.data:
                 x_test = np.swapaxes(x_test, 1, 3).astype(np.float32)
                 x_test = np.swapaxes(x_test, 2, 3).astype(np.float32)
@@ -373,7 +374,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             # model = model.to('cpu')
             if 'half' in args.resumed_checkpoint_path:
                 ADVclassifier = PyTorchClassifier(model=model.half(), clip_values=(min_pixel_value, max_pixel_value),
-                                              loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
+                                                  loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
                 input_type = 'half'
                 art.estimators.classification.pytorch.HALF = True
                 msglogger.info('half model!')
@@ -392,51 +393,85 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             x_test = x_test[:]
             y_test = y_test[:]
             msglogger.info('do normal test')
-            normal_predictions = ADVclassifier.predict(x_test,batch_size=args.batch_size,input_type =input_type)
+            normal_predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size, input_type=input_type)
             if 'imagenet' in args.data:
                 normal_predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(normal_predictions))
                 normal_predictions = np.argmax(normal_predictions, axis=1)
                 normal_predictions = normal_predictions.numpy()
-                t = (np.where((normal_predictions ) == (y_test)))[0]
-                accuracy = len(t)/ len(y_test)
+                t = (np.where((normal_predictions) == (y_test)))[0]
+                accuracy = len(t) / len(y_test)
             else:
                 accuracy = np.sum(np.argmax(normal_predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             msglogger.info("Accuracy on normal test: {}%".format(accuracy * 100))
+            #
+            # if args.cw_attack == '1':
+            #     msglogger.info('--------------------')
+            #     msglogger.info('do CarliniL2Method Attack test!')
+            #     from art.attacks.evasion import CarliniL2Method
+            #     cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.adv_batch_size,binary_search_steps=20,max_iter=10)
+            #     x_test_adv = cw_attack.generate(x=x_test[:])
+            #     msglogger.info('success generate CarliniL2Method Attack')
+            #     predictions = ADVclassifier.predict(x_test_adv, batch_size=args.adv_batch_size,input_type=input_type)
+            #     if 'imagenet' in args.data:
+            #         predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
+            #         predictions = np.argmax(predictions, axis=1)
+            #         predictions = predictions.numpy()
+            #         accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
+            #         success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
+            #     else:
+            #         accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+            #         success_rate = np.sum(
+            #             np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
+            #             y_test)
+            #     msglogger.info("Accuracy under cw2 Attack: {}%".format(accuracy * 100))
+            #
+            #     msglogger.info("Attack sucess of cw2 Attack: {}%".format(success_rate * 100))
+            #     msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
 
             if args.cw_attack == '1':
-                msglogger.info('--------------------')
-                msglogger.info('do CarliniL2Method Attack test!')
-                from art.attacks.evasion import CarliniL2Method
-                cw_attack = CarliniL2Method(classifier=ADVclassifier, batch_size=args.adv_batch_size,binary_search_steps=20,max_iter=10)
-                x_test_adv = cw_attack.generate(x=x_test[:])
-                msglogger.info('success generate CarliniL2Method Attack')
-                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.adv_batch_size,input_type=input_type)
-                if 'imagenet' in args.data:
-                    predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
-                    predictions = np.argmax(predictions, axis=1)
-                    predictions = predictions.numpy()
-                    accuracy = len((np.where((predictions) == (y_test)))[0]) / len(y_test)
-                    success_rate = len((np.where((predictions) != (normal_predictions)))[0]) / len(y_test)
-                else:
-                    accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-                    success_rate = np.sum(
-                        np.argmax(predictions, axis=1) != np.argmax(normal_predictions, axis=1)) / len(
-                        y_test)
-                msglogger.info("Accuracy under cw2 Attack: {}%".format(accuracy * 100))
+                import distiller.torchattacks as torchattacks
+                import datetime
+                total = 0
+                correct = 0
+                success = 0
+                cw_attack = torchattacks.CW(c=1, steps=100, model=model)
+                for images, labels in test_loader:
+                    starttime = datetime.datetime.now()
+                    adversarial_images = cw_attack(images, labels, input_type)
+                    if 'half' in args.resumed_checkpoint_path:
+                        adversarial_images = adversarial_images.half()
+                        images = images.half()
+                    total += len(labels)
 
+                    test_pred = model(images)
+                    adv_pred = model(adversarial_images)
+                    test_pred = test_pred.cpu().detach().numpy()
+                    test_pred = np.argmax(test_pred, axis=1)
+
+                    adv_pred = adv_pred.cpu().detach().numpy()
+                    adv_pred = np.argmax(adv_pred, axis=1)
+
+                    correct += np.sum(adv_pred == labels.cpu().detach().numpy())
+                    success += np.sum(test_pred != adv_pred)
+                    endtime = datetime.datetime.now()
+                    print('\nsuccess generate', total, 'pics, time cost', endtime - starttime)
+                    break
+
+                accuracy = correct / total
+                msglogger.info("Accuracy under cw2 Attack: {}%".format(accuracy * 100))
+                success_rate = success / total
                 msglogger.info("Attack sucess of cw2 Attack: {}%".format(success_rate * 100))
                 msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
-
-
             if args.pgd_attack == '1':
 
                 msglogger.info('--------------------')
                 msglogger.info('do PGD test!')
                 from art.attacks.evasion import ProjectedGradientDescent
-                pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size,eps=8,eps_step=2)
+                pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size, eps=8,
+                                                      eps_step=2)
                 x_test_adv = pgd_attack.generate(x=x_test)
                 msglogger.info('success generate ProjectedGradientDescent Attack')
-                predictions = ADVclassifier.predict(x_test_adv,batch_size=args.adv_batch_size,input_type=input_type)
+                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.adv_batch_size, input_type=input_type)
                 if 'imagenet' in args.data:
                     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
                     predictions = np.argmax(predictions, axis=1)
@@ -451,7 +486,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info("Accuracy under ProjectedGradientDescent Attack: {}%".format(accuracy * 100))
 
                 msglogger.info("Attack sucess of ProjectedGradientDescent Attack: {}%".format(success_rate * 100))
-                msglogger.info("{}%/{}%".format(accuracy * 100,success_rate * 100))
+                msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
                 pass
             if args.square_attack == '1':
                 msglogger.info('--------------------')
@@ -460,7 +495,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 square_attack = SquareAttack(estimator=ADVclassifier, batch_size=args.adv_batch_size, p_init=0.3)
                 x_test_adv = square_attack.generate(x=x_test)
                 msglogger.info('success generate SquareAttack')
-                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size,input_type=input_type)
+                predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size, input_type=input_type)
                 if 'imagenet' in args.data:
                     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
                     predictions = np.argmax(predictions, axis=1)
@@ -476,7 +511,6 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info("Attack sucess of SquareAttack Attack: {}%".format(success_rate * 100))
                 msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
 
-
             if args.extraction_attack == '1':
                 msglogger.info('--------------------')
                 msglogger.info('do Extraction Attack test!')
@@ -491,15 +525,16 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                                             parallel=not args.load_serialized, device_ids=args.gpus)
                 thief_optimizer = torch.optim.SGD(cifar_model.parameters(), lr=0.05, momentum=0.9)
                 thief_classifier = art.classifiers.PyTorchClassifier(model=cifar_model,
-                                                                         optimizer=thief_optimizer,
-                                                                         clip_values=(min_pixel_value, max_pixel_value),
-                                                                         loss=ADVcriterion, input_shape=advinput,
-                                                                         nb_classes=classnum)
+                                                                     optimizer=thief_optimizer,
+                                                                     clip_values=(min_pixel_value, max_pixel_value),
+                                                                     loss=ADVcriterion, input_shape=advinput,
+                                                                     nb_classes=classnum)
 
-                black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier,gpu=args.extraction_gpu)
+                black_box_model = extraction_attack.extract(x=x_test[:], thieved_classifier=thief_classifier,
+                                                            gpu=args.extraction_gpu)
                 msglogger.info('success generate Extraction Attack')
-                y_test_predicted_extracted = black_box_model.predict(x_test , extracion=True,input_type=input_type)
-                y_test_predicted_target = ADVclassifier.predict(x_test,input_type=input_type)
+                y_test_predicted_extracted = black_box_model.predict(x_test, extracion=True, input_type=input_type)
+                y_test_predicted_target = ADVclassifier.predict(x_test, input_type=input_type)
                 if 'imagenet' in args.data:
                     y_test_predicted_extracted = torch.nn.Softmax(dim=1)(torch.from_numpy(y_test_predicted_extracted))
                     y_test_predicted_extracted = np.argmax(y_test_predicted_extracted, axis=1)
@@ -509,10 +544,9 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     y_test_predicted_target = np.argmax(y_test_predicted_target, axis=1)
                     y_test_predicted_target = y_test_predicted_target.numpy()
 
-
                     accuracy = len((np.where((y_test_predicted_extracted) == (y_test)))[0]) / len(y_test)
-                    success_rate = len((np.where((y_test_predicted_extracted) == (normal_predictions)))[0]) / len(y_test)
-
+                    success_rate = len((np.where((y_test_predicted_extracted) == (normal_predictions)))[0]) / len(
+                        y_test)
 
                     msglogger.info(
                         "Extracted model - Test accuracy:")
@@ -551,8 +585,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             msglogger.info(args.resumed_checkpoint_path)
         else:
             classifier.evaluate_model(test_loader, model, criterion, pylogger,
-                                          classifier.create_activation_stats_collectors(model, *args.activation_stats),
-                                          args, scheduler=compression_scheduler)
+                                      classifier.create_activation_stats_collectors(model, *args.activation_stats),
+                                      args, scheduler=compression_scheduler)
             msglogger.info(print_size_of_model(model))
         do_exit = True
     elif args.thinnify:
