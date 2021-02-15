@@ -434,7 +434,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 total = 0
                 correct = 0
                 success = 0
-                cw_attack = torchattacks.CW(c=1, steps=100, model=model)
+                cw_attack = torchattacks.CW(c=5, steps=100, model=model)
                 for images, labels in test_loader:
                     starttime = datetime.datetime.now()
                     adversarial_images = cw_attack(images, labels, input_type)
@@ -455,7 +455,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     success += np.sum(test_pred != adv_pred)
                     endtime = datetime.datetime.now()
                     print('\nsuccess generate', total, 'pics, time cost', endtime - starttime)
-
+                    if total > 500:
+                        break
                 accuracy = correct / total
                 msglogger.info("Accuracy under cw2 Attack: {}%".format(accuracy * 100))
                 success_rate = success / total
