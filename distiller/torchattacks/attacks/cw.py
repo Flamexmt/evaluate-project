@@ -94,7 +94,7 @@ class CW(Attack):
 
             mask = mask.view([-1] + [1] * (dim - 1))
             best_adv_images = mask * adv_images.detach() + (1 - mask) * best_adv_images
-            print('\rfinish step', step, '/', self.steps,'total steps', end='')
+            print('\rfinish step', step, '/', self.steps, 'total steps', end='')
             # Early Stop when loss does not converge.
             if step % (self.steps // 10) == 0:
                 if cost.item() > prev_cost:

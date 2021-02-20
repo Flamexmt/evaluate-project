@@ -389,9 +389,10 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                                   loss=ADVcriterion, input_shape=advinput, nb_classes=classnum)
                 input_type = 'float'
                 msglogger.info('normal model!')
-
-            x_test = x_test[:]
-            y_test = y_test[:]
+            lenth = 500
+            if lenth != 0:
+                x_test = x_test[:lenth]
+                y_test = y_test[:lenth]
             msglogger.info('do normal test')
             normal_predictions = ADVclassifier.predict(x_test, batch_size=args.batch_size, input_type=input_type)
             if 'imagenet' in args.data:
@@ -403,6 +404,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             else:
                 accuracy = np.sum(np.argmax(normal_predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
             msglogger.info("Accuracy on normal test: {}%".format(accuracy * 100))
+            import datetime
+
             #
             # if args.cw_attack == '1':
             #     msglogger.info('--------------------')
@@ -435,13 +438,16 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 correct = 0
                 success = 0
                 cw_attack = torchattacks.CW(c=5, steps=100, model=model)
+                L_2_norm = np.zeros(len(x_test))
+                L_inf_norm = np.zeros(len(x_test))
                 for images, labels in test_loader:
+                    batch_size = len(labels)
                     starttime = datetime.datetime.now()
                     adversarial_images = cw_attack(images, labels, input_type)
+                    images = images.cuda()
                     if 'half' in args.resumed_checkpoint_path:
                         adversarial_images = adversarial_images.half()
                         images = images.half()
-                    total += len(labels)
 
                     test_pred = model(images)
                     adv_pred = model(adversarial_images)
@@ -454,24 +460,78 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     correct += np.sum(adv_pred == labels.cpu().detach().numpy())
                     success += np.sum(test_pred != adv_pred)
                     endtime = datetime.datetime.now()
-                    print('\nsuccess generate', total, 'pics, time cost', endtime - starttime)
-                    if total > 500:
+
+                    adversarial_images = adversarial_images.cpu().detach().numpy()
+                    adversarial_images[np.isnan(adversarial_images)]=0
+                    a_images = images.cpu().detach().numpy()
+                    x_delta = adversarial_images - a_images
+                    for i in range(len(adversarial_images)):
+                        temp = x_delta[total+i].ravel()
+                        L_2_norm[i] = np.linalg.norm(x=temp, ord=2)
+                        L_inf_norm[i] = np.linalg.norm(x=temp, ord=np.inf)
+                    total += len(labels)
+                    print('\nsuccess generate', total, 'pics, time cost', endtime - starttime,'pic avg cost',(endtime - starttime)/total)
+
+                    if total >= lenth:
                         break
+                msglogger.info('L2 avg delta:')
+                msglogger.info(np.average(L_2_norm))
+                msglogger.info('L2 max delta:')
+                msglogger.info(np.max(L_2_norm))
+                msglogger.info('L2 min delta:')
+                msglogger.info(np.min(L_2_norm))
+
+                msglogger.info('L inf avg delta:')
+                msglogger.info(np.average(L_inf_norm))
+                msglogger.info('L inf max delta:')
+                msglogger.info(np.max(L_inf_norm))
+                msglogger.info('L inf min delta:')
+                msglogger.info(np.min(L_inf_norm))
                 accuracy = correct / total
                 msglogger.info("Accuracy under cw2 Attack: {}%".format(accuracy * 100))
                 success_rate = success / total
                 msglogger.info("Attack sucess of cw2 Attack: {}%".format(success_rate * 100))
                 msglogger.info("{}%/{}%".format(accuracy * 100, success_rate * 100))
-            if args.pgd_attack == '1':
 
+            if args.pgd_attack == '1':
                 msglogger.info('--------------------')
                 msglogger.info('do PGD test!')
                 from art.attacks.evasion import ProjectedGradientDescent
                 pgd_attack = ProjectedGradientDescent(estimator=ADVclassifier, batch_size=args.adv_batch_size, eps=8,
                                                       eps_step=2)
+                attack_start_time = datetime.datetime.now()
+
                 x_test_adv = pgd_attack.generate(x=x_test)
+
+                attack_end_time = datetime.datetime.now()
+
                 msglogger.info('success generate ProjectedGradientDescent Attack')
+                msglogger.info('time cost for one pic')
+                msglogger.info((attack_end_time - attack_start_time) / len(x_test_adv))
+
+                x_delta = x_test_adv - x_test
+                L_2_norm = np.zeros(len(x_delta))
+                L_inf_norm = np.zeros(len(x_delta))
+                for i in range(len(x_delta)):
+                    temp = x_delta[i].ravel()
+                    L_2_norm[i] = np.linalg.norm(x=temp, ord=2)
+                    L_inf_norm[i] = np.linalg.norm(x=temp, ord=np.inf)
+                msglogger.info('L2 avg delta:')
+                msglogger.info(np.average(L_2_norm))
+                msglogger.info('L2 max delta:')
+                msglogger.info(np.max(L_2_norm))
+                msglogger.info('L2 min delta:')
+                msglogger.info(np.min(L_2_norm))
+
+                msglogger.info('L inf avg delta:')
+                msglogger.info(np.average(L_inf_norm))
+                msglogger.info('L inf max delta:')
+                msglogger.info(np.max(L_inf_norm))
+                msglogger.info('L inf min delta:')
+                msglogger.info(np.min(L_inf_norm))
+
                 predictions = ADVclassifier.predict(x_test_adv, batch_size=args.adv_batch_size, input_type=input_type)
+
                 if 'imagenet' in args.data:
                     predictions = torch.nn.Softmax(dim=1)(torch.from_numpy(predictions))
                     predictions = np.argmax(predictions, axis=1)
@@ -493,7 +553,40 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info('do SquareAttack test!')
                 from art.attacks.evasion.square_attack import SquareAttack
                 square_attack = SquareAttack(estimator=ADVclassifier, batch_size=args.adv_batch_size, p_init=0.3)
+
+                attack_start_time = datetime.datetime.now()
+
                 x_test_adv = square_attack.generate(x=x_test)
+
+                attack_end_time = datetime.datetime.now()
+
+                msglogger.info('success generate SquareAttack Attack')
+                msglogger.info('time cost for one pic')
+                msglogger.info((attack_end_time - attack_start_time) / len(x_test_adv))
+                msglogger.info('pic number is')
+                msglogger.info(len(x_test_adv))
+
+                x_delta = x_test_adv - x_test
+                L_2_norm = np.zeros(len(x_delta))
+                L_inf_norm = np.zeros(len(x_delta))
+                for i in range(len(x_delta)):
+                    temp = x_delta[i].ravel()
+                    L_2_norm[i] = np.linalg.norm(x=temp, ord=2)
+                    L_inf_norm[i] = np.linalg.norm(x=temp, ord=np.inf)
+                msglogger.info('L2 avg delta:')
+                msglogger.info(np.average(L_2_norm))
+                msglogger.info('L2 max delta:')
+                msglogger.info(np.max(L_2_norm))
+                msglogger.info('L2 min delta:')
+                msglogger.info(np.min(L_2_norm))
+
+                msglogger.info('L inf avg delta:')
+                msglogger.info(np.average(L_inf_norm))
+                msglogger.info('L inf max delta:')
+                msglogger.info(np.max(L_inf_norm))
+                msglogger.info('L inf min delta:')
+                msglogger.info(np.min(L_inf_norm))
+
                 msglogger.info('success generate SquareAttack')
                 predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size, input_type=input_type)
                 if 'imagenet' in args.data:
