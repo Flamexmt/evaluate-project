@@ -466,9 +466,9 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     a_images = images.cpu().detach().numpy()
                     x_delta = adversarial_images - a_images
                     for i in range(len(adversarial_images)):
-                        temp = x_delta[total+i].ravel()
-                        L_2_norm[i] = np.linalg.norm(x=temp, ord=2)
-                        L_inf_norm[i] = np.linalg.norm(x=temp, ord=np.inf)
+                        temp = x_delta[i].ravel()
+                        L_2_norm[total+i] = np.linalg.norm(x=temp, ord=2)
+                        L_inf_norm[total+i] = np.linalg.norm(x=temp, ord=np.inf)
                     total += len(labels)
                     print('\nsuccess generate', total, 'pics, time cost', endtime - starttime,'pic avg cost',(endtime - starttime)/total)
 
@@ -480,6 +480,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info(np.max(L_2_norm))
                 msglogger.info('L2 min delta:')
                 msglogger.info(np.min(L_2_norm))
+                msglogger.info("{:.2f}/{:.2f}/{:.2f}".format(np.average(L_2_norm),np.max(L_2_norm),np.min(L_2_norm)))
 
                 msglogger.info('L inf avg delta:')
                 msglogger.info(np.average(L_inf_norm))
@@ -487,6 +488,8 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info(np.max(L_inf_norm))
                 msglogger.info('L inf min delta:')
                 msglogger.info(np.min(L_inf_norm))
+                msglogger.info("{:.2f}/{:.2f}/{:.2f}".format(np.average(L_inf_norm),np.max(L_inf_norm),np.min(L_inf_norm)))
+
                 accuracy = correct / total
                 msglogger.info("Accuracy under cw2 Attack: {}%".format(accuracy * 100))
                 success_rate = success / total
@@ -522,6 +525,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info(np.max(L_2_norm))
                 msglogger.info('L2 min delta:')
                 msglogger.info(np.min(L_2_norm))
+                msglogger.info("{:.2f}/{:.2f}/{:.2f}".format(np.average(L_2_norm),np.max(L_2_norm),np.min(L_2_norm)))
 
                 msglogger.info('L inf avg delta:')
                 msglogger.info(np.average(L_inf_norm))
@@ -529,6 +533,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info(np.max(L_inf_norm))
                 msglogger.info('L inf min delta:')
                 msglogger.info(np.min(L_inf_norm))
+                msglogger.info("{:.2f}/{:.2f}/{:.2f}".format(np.average(L_inf_norm),np.max(L_inf_norm),np.min(L_inf_norm)))
 
                 predictions = ADVclassifier.predict(x_test_adv, batch_size=args.adv_batch_size, input_type=input_type)
 
@@ -579,6 +584,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info(np.max(L_2_norm))
                 msglogger.info('L2 min delta:')
                 msglogger.info(np.min(L_2_norm))
+                msglogger.info("{:.2f}/{:.2f}/{:.2f}".format(np.average(L_2_norm),np.max(L_2_norm),np.min(L_2_norm)))
 
                 msglogger.info('L inf avg delta:')
                 msglogger.info(np.average(L_inf_norm))
@@ -586,6 +592,7 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                 msglogger.info(np.max(L_inf_norm))
                 msglogger.info('L inf min delta:')
                 msglogger.info(np.min(L_inf_norm))
+                msglogger.info("{:.2f}/{:.2f}/{:.2f}".format(np.average(L_inf_norm),np.max(L_inf_norm),np.min(L_inf_norm)))
 
                 msglogger.info('success generate SquareAttack')
                 predictions = ADVclassifier.predict(x_test_adv, batch_size=args.batch_size, input_type=input_type)
