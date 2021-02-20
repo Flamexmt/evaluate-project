@@ -470,8 +470,9 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                         L_2_norm[total+i] = np.linalg.norm(x=temp, ord=2)
                         L_inf_norm[total+i] = np.linalg.norm(x=temp, ord=np.inf)
                     total += len(labels)
-                    print('\nsuccess generate', total, 'pics, time cost', endtime - starttime,'pic avg cost',(endtime - starttime)/total)
-
+                    print('\nsuccess generate', total, 'pics, time cost', endtime - starttime)
+                    msglogger.info('pic avg cost')
+                    msglogger.info((endtime - starttime) / len(labels))
                     if total >= lenth:
                         break
                 msglogger.info('L2 avg delta:')
