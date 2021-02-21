@@ -229,9 +229,9 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             from distiller.apputils.data_loaders import GrayCifarDataset
             if 'cifar' in args.arch:
                 data_setting = {
-                    'test_color_path': '../data.cifar/cifar_color_test_imgs',
-                    'test_gray_path': './data.cifar/cifar_gray_test_imgs',
-                    'test_label_path': './data.cifar/cifar_test_labels',
+                    'test_color_path': '../../data.cifar/cifar_color_test_imgs',
+                    'test_gray_path': '../../data.cifar/cifar_gray_test_imgs',
+                    'test_label_path': '../../data.cifar/cifar_test_labels',
                 }
                 normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                 transform_test = transforms.Compose([
@@ -252,76 +252,65 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                     test_gray_data, batch_size=args.batch_size,
                     shuffle=False, num_workers=2)
 
-                print('do normal test')
-                normal_top1, normal_top5, normal_lossses, normal_confusion = classifier.evaluate_model(
-                    test_color_loader, model, criterion, pylogger,
-                    classifier.create_activation_stats_collectors(model, *args.activation_stats),
-                    args, scheduler=compression_scheduler)
-                normal_true_number = []  # for demographic parity
-                for line in range(len(normal_confusion.value())):
-                    normal_true_number.append(normal_confusion.value()[1, :].sum())
 
-                normal_correct_number = normal_confusion.value().diagonal()  # for equal opp parity
-
-                normal_accuracy = []  # for predective  parity
-                for line in range(len(normal_confusion.value())):
-                    normal_accuracy.append(normal_correct_number[line] / normal_confusion.value()[line].sum())
-
-                print('do texture test')
-                texture_top1, texture_top5, texture_lossses, texture_confusion = classifier.evaluate_model(
-                    test_gray_loader, model, criterion, pylogger,
-                    classifier.create_activation_stats_collectors(
-                        model, *args.activation_stats),
-                    args, scheduler=compression_scheduler)
-                texture_true_number = []  # for demographic parity
-                for line in range(len(texture_confusion.value())):
-                    texture_true_number.append(texture_confusion.value()[1, :].sum())
-
-                texture_correct_number = texture_confusion.value().diagonal()  # for equal opp parity
-
-                texture_accuracy = []  # for predective  parity
-                for line in range(len(texture_confusion.value())):
-                    texture_accuracy.append(texture_correct_number[line] / texture_confusion.value()[line].sum())
-
-                demograpic_parity = (normal_true_number / texture_true_number).mean()
-
-                equal_parity = (normal_correct_number - texture_correct_number).abs().mean()
-                import numpy as np
-                predictive_parity = np.absolute(normal_accuracy - texture_accuracy).mean()
-
-                msglogger.info('Demographic Parity')
-                msglogger.info(str(demograpic_parity))
-                msglogger.info('-----------------')
-                msglogger.info('Equality of Opportunity')
-                msglogger.info(str(equal_parity))
-                msglogger.info('-----------------')
-                msglogger.info('Predictive Quality Parity')
-                msglogger.info(str(predictive_parity))
-                msglogger.info('-----------------')
 
             else:
+                test_color_loader = test_loader
                 test_gray_loader = classifier.load_data(args, load_train=False, load_val=False, load_test=True,
                                                         stylized_imagenet=True)
-                color_correct = 0
-                color_total = 0
-                for i, (input, label) in enumerate(test_loader):
-                    outputs = model(input)
-                    _, predicted = torch.max(outputs.data, 1)
-                    color_correct += (predicted == label).sum()
-                    color_total += len(label)
-                normal_accuracy = int(color_correct) / int(color_total)
-                print('accuracy at normal images {}'.format(normal_accuracy))
 
-                gray_correct = 0
-                gray_total = 0
-                for i, (input, label) in enumerate(test_gray_loader):
-                    outputs = model(input)
-                    _, predicted = torch.max(outputs.data, 1)
-                    gray_correct += (predicted == label).sum()
-                    gray_total += len(label)
-                gray_accuracy = int(gray_correct) / int(gray_total)
-                print('accuracy at changed images {}'.format(gray_accuracy))
-            pass
+            normal_top1, normal_top5, normal_lossses, normal_confusion = classifier.evaluate_model(
+                test_color_loader, model, criterion, pylogger,
+                classifier.create_activation_stats_collectors(model, *args.activation_stats),
+                args, scheduler=compression_scheduler)
+            normal_true_number = []  # for demographic parity
+            for line in range(len(normal_confusion.value())):
+                normal_true_number.append(normal_confusion.value()[:, line].sum())
+
+            normal_true_positive_number = normal_confusion.value().diagonal()  # for equal opp parity
+            normal_true_positive_rate = []
+            for line in range(len(normal_confusion.value())):
+                normal_true_positive_rate.append(normal_true_positive_number[line] / normal_confusion.value()[line].sum())
+
+            normal_accuracy = normal_confusion.value().diagonal().sum()/normal_confusion.value().sum() # for predective  parity
+
+
+            print('do texture test')
+            texture_top1, texture_top5, texture_lossses, texture_confusion = classifier.evaluate_model(
+                test_gray_loader, model, criterion, pylogger,
+                classifier.create_activation_stats_collectors(
+                    model, *args.activation_stats),
+                args, scheduler=compression_scheduler)
+            texture_true_number = []  # for demographic parity
+            for line in range(len(texture_confusion.value())):
+                texture_true_number.append(texture_confusion.value()[:, line].sum())
+
+            texture_true_positive_number = texture_confusion.value().diagonal()  # for equal opp parity
+            texture_true_positive_rate = []
+            for line in range(len(texture_confusion.value())):
+                texture_true_positive_rate.append(
+                    texture_true_positive_number[line] / texture_confusion.value()[line].sum())
+
+            texture_accuracy = texture_confusion.value().diagonal().sum() / texture_confusion.value().sum()  # for predective  parity
+
+            import numpy as np
+
+            demograpic_parity = np.array(normal_true_number) / np.array(texture_true_number)
+            demograpic_parity = [x if x<1 else 1/x for x in demograpic_parity]
+            demograpic_parity = np.array(demograpic_parity).mean()
+
+            equal_parity = np.absolute(np.array(normal_true_positive_rate) - np.array(texture_true_positive_rate)).mean()
+            predictive_parity = np.absolute((normal_accuracy) - (texture_accuracy))
+
+            msglogger.info('Demographic Parity')
+            msglogger.info(str(demograpic_parity))
+            msglogger.info('-----------------')
+            msglogger.info('Equality of Opportunity')
+            msglogger.info(str(equal_parity))
+            msglogger.info('-----------------')
+            msglogger.info('Predictive Quality Parity')
+            msglogger.info(str(predictive_parity))
+            msglogger.info('-----------------')
         elif args.adv == '1':
             import numpy as np
             import torch.nn as nn

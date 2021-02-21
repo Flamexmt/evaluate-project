@@ -732,7 +732,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
     batch_time = tnt.AverageValueMeter()
     total_samples = len(data_loader.sampler)
     batch_size = data_loader.batch_size
-    if args.display_confusion:
+    if True:
         confusion = tnt.ConfusionMeter(args.num_classes)
     total_steps = total_samples / batch_size
     msglogger.info('%d samples (%d per mini-batch)', total_samples, batch_size)
@@ -755,7 +755,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
                 losses['objective_loss'].add(loss.item())
 
                 classerr.add(output.detach(), target)
-                if args.display_confusion:
+                if True:
                     confusion.add(output.detach(), target)
             else:
                 earlyexit_validate_loss(output, target, criterion, args)

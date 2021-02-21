@@ -27,6 +27,7 @@ from torch.utils.data.sampler import Sampler
 import numpy as np
 import distiller
 import pickle
+from PIL import Image
 DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist']
 
 
