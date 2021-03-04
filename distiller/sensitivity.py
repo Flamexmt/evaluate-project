@@ -114,7 +114,7 @@ def perform_sensitivity_analysis(model, net_params, sparsities, test_func, group
             scheduler.mask_all_weights()
 
             # Test and record the performance of the pruned model
-            prec1, prec5, loss = test_func(model=model_cpy)
+            prec1, prec5, loss,_ = test_func(model=model_cpy)
             sensitivity[sparsity_level] = (prec1, prec5, loss)
             sensitivities[param_name] = sensitivity
     return sensitivities
